@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+
+  "_": "빌드가 없습니다. 저장소의 정적 파일을 그대로 올립니다.",
+
+  "redirects": [
+    {
+      "_": "루트를 갤러리로. rewrite가 아니라 redirect여야 합니다 — 주소가 / 로 남으면 ./js/build.js 같은 상대 경로가 /js/build.js 로 잘못 풀립니다.",
+      "source": "/",
+      "destination": "/app/",
+      "permanent": false
+    }
+  ],
+
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "_": "폰트는 2MB이고 절대 안 바뀝니다. 오래 캐시합니다.",
+      "source": "/(.*).woff2",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

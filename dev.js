@@ -21,7 +21,15 @@ const TYPES = {
 
 http.createServer((req, res) => {
   let rel = decodeURIComponent(req.url.split('?')[0]);
-  if(rel === '/') rel = '/app/index.html';
+
+  // 루트는 갤러리로 "보냅니다". 여기서 파일을 바로 내주면 주소가 / 로 남아
+  // ./js/build.js 같은 상대 경로가 /js/build.js 로 잘못 풀립니다. (배포 설정과 동일)
+  if(rel === '/'){
+    res.writeHead(302, { location: '/app/' });
+    res.end();
+    return;
+  }
+  if(rel.endsWith('/')) rel += 'index.html';
 
   const file = path.join(ROOT, path.normalize(rel).replace(/^([\\/])+/, ''));
   if(!file.startsWith(ROOT)){ res.writeHead(403).end('nope'); return; }

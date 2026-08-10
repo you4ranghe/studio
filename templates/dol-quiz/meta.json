@@ -1,0 +1,45 @@
+{
+  "id": "dol-quiz",
+  "version": 1,
+  "name": "돌잔치 퀴즈 게임",
+  "category": "돌잔치",
+  "tagline": "8비트 게임 화면으로 진행하는 하객 참여 퀴즈",
+  "description": "문제를 내면 ? 블록에서 정답이 튀어나옵니다. 5문제마다 배경이 지상에서 지하로 바뀌고, 마지막에 골인 화면이 나옵니다. 프로젝터에 띄워 사회자가 진행하는 용도입니다.",
+
+  "output": {
+    "kind": "presentation",
+    "aspect": "16:9",
+    "offline": true,
+    "note": "인터넷 없이 노트북에서 바로 열립니다. 행사장 와이파이가 필요 없습니다."
+  },
+
+  "estimatedMinutes": 8,
+  "priceKRW": 19000,
+
+  "highlights": [
+    "와이파이 없이 파일 하나로 재생",
+    "문제 수 자유 (5문제마다 배경 전환)",
+    "프레젠터 리모컨·3초 타이머 지원",
+    "글자 길이에 맞춰 크기 자동 조절"
+  ],
+
+  "keys": [
+    { "key": "→ / Space", "desc": "다음 — 정답 화면에서는 첫 번째가 정답 공개" },
+    { "key": "←",         "desc": "이전" },
+    { "key": "F",         "desc": "전체화면" },
+    { "key": "T",         "desc": "3초 카운트다운" },
+    { "key": "O",         "desc": "목차" },
+    { "key": "M",         "desc": "음소거" }
+  ],
+
+  "fonts": [
+    { "file": "PressStart2P.woff2",        "family": "PressStart2P", "weight": "400",     "license": "OFL 1.1", "use": "영문 픽셀" },
+    { "file": "Galmuri11.woff2",           "family": "Galmuri11",    "weight": "400",     "license": "OFL 1.1", "use": "한글 픽셀" },
+    { "file": "Pretendard-ExtraBold.woff2","family": "PretendardXB", "weight": "100 900", "license": "OFL 1.1", "use": "본문" }
+  ],
+
+  "audio": {
+    "enabled": false,
+    "note": "효과음은 WebAudio로 즉석 생성하므로 파일이 없습니다. 배경음악은 저작권이 정리된 음원을 확보한 뒤 켭니다."
+  }
+}

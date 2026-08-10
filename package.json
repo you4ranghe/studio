@@ -1,0 +1,9 @@
+{
+  "name": "studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "폼을 채우면 HTML 파일 하나로 뽑아주는 행사 페이지 생성 서비스",
+  "scripts": {
+    "dev": "node dev.js"
+  }
+}

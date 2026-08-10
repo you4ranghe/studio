@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>스튜디오 — 파일로 소유하는 초대장</title>
+<link rel="stylesheet" href="./css/app.css">
+<style>
+  body{ background:var(--paper); height:auto; }
+  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px 80px; }
+
+  .nav{
+    display:flex; align-items:center; gap:10px;
+    height:60px; max-width:1080px; margin:0 auto; padding:0 24px;
+  }
+  .nav .mark{ display:flex; align-items:center; gap:9px; font-size:14px; font-weight:700; }
+  .nav .mark .chip{
+    width:22px; height:22px; border-radius:5px; background:var(--gold);
+    box-shadow:inset 0 -3px 0 rgba(0,0,0,.16), inset 0 0 0 2px rgba(0,0,0,.28);
+    display:grid; place-items:center; font-family:var(--font-pixel); font-size:12px; color:#4A2E00;
+  }
+
+  /* 히어로 — 설명 대신 결과물이 실제로 돌아갑니다 */
+  .hero{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:44px; align-items:center; padding:26px 0 56px; }
+  .hero h1{
+    margin:0; font-size:44px; line-height:1.18; letter-spacing:-.035em;
+  }
+  .hero h1 em{ font-style:normal; color:var(--brick); }
+  .hero p{ margin:18px 0 0; font-size:15px; color:var(--ink-2); max-width:40ch; line-height:1.7; }
+  .hero .kicker{
+    font-family:var(--font-pixel); font-size:11px; color:var(--gold-deep);
+    letter-spacing:.08em; margin-bottom:14px;
+  }
+  .hero .cta{ display:flex; gap:10px; margin-top:26px; }
+  .hero .btn{ height:42px; padding:0 20px; font-size:14px; }
+
+  .demo{
+    aspect-ratio:16/9; border-radius:12px; overflow:hidden;
+    background:#000; box-shadow:var(--shadow-2); position:relative;
+  }
+  .demo iframe{ width:100%; height:100%; border:0; display:block; }
+  .demo__tag{
+    position:absolute; left:12px; bottom:12px;
+    font-family:var(--font-pixel); font-size:11px;
+    background:rgba(14,21,36,.82); color:#D9E2F0;
+    padding:5px 9px; border-radius:6px;
+  }
+
+  /* 결과물의 성격 — 이게 다른 서비스와 갈리는 지점입니다 */
+  .facts{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .fact{ background:var(--surface); padding:20px 20px 22px; }
+  .fact b{ display:block; font-size:14px; margin-bottom:5px; }
+  .fact span{ font-size:13px; color:var(--muted); line-height:1.6; }
+  .fact .n{ font-family:var(--font-pixel); font-size:11px; color:var(--gold-deep); display:block; margin-bottom:10px; }
+
+  .sec{ margin-top:64px; }
+  .sec > h2{ margin:0 0 4px; font-size:20px; letter-spacing:-.02em; }
+  .sec > p{ margin:0 0 22px; color:var(--muted); font-size:13px; }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:16px; }
+  .card{
+    background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    overflow:hidden; box-shadow:var(--shadow-1); display:flex; flex-direction:column;
+  }
+  .card__shot{ aspect-ratio:16/9; background:#0E1524; position:relative; overflow:hidden; }
+  .card__shot iframe{ width:200%; height:200%; border:0; transform:scale(.5); transform-origin:0 0; pointer-events:none; }
+  .card__b{ padding:16px 16px 18px; display:flex; flex-direction:column; flex:1; }
+  .card__cat{ font-family:var(--font-pixel); font-size:11px; color:var(--gold-deep); }
+  .card__b h3{ margin:6px 0 4px; font-size:16px; letter-spacing:-.01em; }
+  .card__b p{ margin:0 0 14px; font-size:13px; color:var(--muted); line-height:1.6; flex:1; }
+  .card__meta{ display:flex; gap:14px; font-size:12px; color:var(--muted); margin-bottom:14px; }
+  .card__meta b{ color:var(--ink-2); font-weight:600; }
+  .card__go{ display:flex; gap:8px; }
+  .card__go .btn{ flex:1; text-align:center; text-decoration:none; display:grid; place-items:center; }
+
+  .note{ margin-top:56px; font-size:12px; color:var(--muted); line-height:1.7; }
+
+  @media (max-width:860px){
+    .hero{ grid-template-columns:1fr; gap:28px; padding-bottom:36px; }
+    .hero h1{ font-size:32px; }
+    .facts{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <span class="mark"><span class="chip">?</span> 스튜디오</span>
+</nav>
+
+<div class="wrap">
+
+  <section class="hero">
+    <div>
+      <div class="kicker">HTML 1개로 완성</div>
+      <h1>행사가 끝나도<br><em>파일은 남습니다.</em></h1>
+      <p>
+        돌잔치 퀴즈, 초대장, 행사 진행 화면을 폼만 채워서 만듭니다.
+        결과는 서버에 걸린 링크가 아니라 내 컴퓨터에 저장되는 HTML 파일 하나입니다.
+        와이파이 없이 열리고, 서비스가 문을 닫아도 그대로 남습니다.
+      </p>
+      <div class="cta">
+        <a class="btn btn--primary" href="./editor.html?t=dol-quiz">샘플 고쳐보기</a>
+        <button class="btn" id="openDemo" type="button">결과물 전체화면으로 보기</button>
+      </div>
+    </div>
+    <div class="demo">
+      <iframe id="heroFrame" title="결과물 미리보기" src="../templates/dol-quiz/renderer.html"></iframe>
+      <span class="demo__tag">실제 결과물이 지금 돌아가고 있습니다</span>
+    </div>
+  </section>
+
+  <div class="facts">
+    <div class="fact">
+      <span class="n">OFFLINE</span>
+      <b>와이파이 없이 재생</b>
+      <span>글씨까지 파일 안에 들어갑니다. 행사장 인터넷이 끊겨도 그대로 열립니다.</span>
+    </div>
+    <div class="fact">
+      <span class="n">YOURS</span>
+      <b>파일을 소유합니다</b>
+      <span>링크 만료도, 서비스 종료도 결과물에 영향을 주지 않습니다.</span>
+    </div>
+    <div class="fact">
+      <span class="n">EDIT</span>
+      <b>언제든 다시 고칩니다</b>
+      <span>입력한 내용이 남아 있어, 행사 전날까지 몇 번이든 다시 만듭니다.</span>
+    </div>
+  </div>
+
+  <section class="sec">
+    <h2>템플릿</h2>
+    <p>고르면 샘플이 채워진 상태로 편집기가 열립니다. 백지부터 쓰지 않습니다.</p>
+    <div class="cards" id="cards">불러오는 중…</div>
+  </section>
+
+  <p class="note">
+    M1 시제품입니다. 결제·로그인·공유 링크는 아직 없고, 작업 내용은 이 브라우저에만 저장됩니다.
+  </p>
+
+</div>
+
+<script type="module">
+import { loadTemplate, buildSingleFile } from './js/build.js';
+
+const cards = document.getElementById('cards');
+
+const list = await fetch('../templates/index.json').then(r => r.json());
+const tpls = await Promise.all(list.templates.map(id => loadTemplate('../templates/' + id)));
+
+cards.innerHTML = tpls.map(t => `
+  <article class="card">
+    <div class="card__shot"><iframe src="${t.dir}/renderer.html" title="${t.meta.name} 미리보기" tabindex="-1"></iframe></div>
+    <div class="card__b">
+      <span class="card__cat">${t.meta.category.toUpperCase()}</span>
+      <h3>${t.meta.name}</h3>
+      <p>${t.meta.tagline}</p>
+      <div class="card__meta">
+        <span>입력 <b>약 ${t.meta.estimatedMinutes}분</b></span>
+        <span>결과 <b>HTML 1개</b></span>
+        <span><b>${t.meta.output.offline ? '오프라인 재생' : '온라인'}</b></span>
+      </div>
+      <div class="card__go">
+        <a class="btn btn--primary" href="./editor.html?t=${t.meta.id}">이 템플릿으로 만들기</a>
+      </div>
+    </div>
+  </article>`).join('');
+
+/* 히어로의 결과물을 그대로 새 탭에 띄웁니다 — 샘플 데이터로 빌드한 진짜 파일입니다 */
+document.getElementById('openDemo').addEventListener('click', async () => {
+  const blob = await buildSingleFile(tpls[0], tpls[0].sample);
+  const url = URL.createObjectURL(blob);
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+});
+
+/* 히어로 미리보기에 샘플 데이터를 실어 보냅니다 */
+const hero = document.getElementById('heroFrame');
+const send = () => hero.contentWindow?.postMessage({ type:'studio:data', data: tpls[0].sample }, '*');
+hero.addEventListener('load', send);
+send();
+</script>
+
+</body>
+</html>

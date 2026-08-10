@@ -1,0 +1,2104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>채원이 첫 돌잔치 QUIZ GAME</title>
+
+<style>
+/*__EMBED_FONTS__*/
+
+:root{
+  /* ── 공통 팔레트 ─────────────────── */
+  --ink:#16214A;
+  --ink-2:#0C1330;
+  --gold:#F6CE3C;
+  --gold-d:#D9A21B;
+  --red:#E8503C;
+  --red-d:#B32F20;
+  --paper:#FFFDF5;
+
+  --f-pixel:'PressStart2P','Galmuri11',monospace;
+  --f-kr-pixel:'Galmuri11','PressStart2P','Malgun Gothic',sans-serif;
+  --f-body:'PretendardXB','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
+}
+
+*{margin:0;padding:0;box-sizing:border-box;}
+
+html,body{
+  height:100%;
+  background:#000;
+  overflow:hidden;
+  font-family:var(--f-body);
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ══════════════════════════════════════
+   무대 — 1920×1080 고정 후 화면에 맞춰 축소
+   ══════════════════════════════════════ */
+#viewport{position:fixed; inset:0; overflow:hidden; background:#000;}
+#safe{
+  position:absolute;
+  top:env(safe-area-inset-top,0px);    right:env(safe-area-inset-right,0px);
+  bottom:env(safe-area-inset-bottom,0px); left:env(safe-area-inset-left,0px);
+}
+#stage{
+  position:absolute; left:50%; top:50%;
+  width:1920px; height:1080px;
+  transform:translate(-50%,-50%);
+  transform-origin:center center;
+  overflow:hidden;
+  background:#0A0E28;
+  cursor:default;
+  touch-action:manipulation;
+}
+
+/* ══════════════════════════════════════
+   테마 — 월드마다 하늘·지면·글자색이 통째로 바뀝니다
+   ══════════════════════════════════════ */
+.slide{
+  position:absolute; inset:0;
+  display:none;
+  --text:#16214A;          /* 본문 글자색 */
+  --text-sh:rgba(255,255,255,.45);
+  --panel:#FFFDF5;
+  --panel-line:#16214A;
+}
+.slide.is-active{display:block;}
+
+.slide[data-theme="dawn"]      {background:linear-gradient(180deg,#FFB870 0%,#FF9E6B 18%,#7EC0F5 62%,#A8DBFF 100%);}
+.slide[data-theme="overworld"] {background:linear-gradient(180deg,#4FA8F0 0%,#8FD4FF 78%);}
+.slide[data-theme="underground"]{
+  background:#07091C;
+  --text:#EAF2FF;
+  --text-sh:rgba(0,0,0,.5);
+  --panel:#101A44;
+  --panel-line:#5C86FF;
+}
+.slide[data-theme="castle"]{
+  background:linear-gradient(180deg,#140B2E 0%,#2B1B52 60%,#43276B 100%);
+  --text:#FFF3D6;
+  --text-sh:rgba(0,0,0,.5);
+  --panel:#231544;
+  --panel-line:#F6CE3C;
+}
+
+/* ══════════════════════════════════════
+   배경 요소
+   ══════════════════════════════════════ */
+.layer{position:absolute; inset:0; pointer-events:none;}
+.px{position:absolute; image-rendering:pixelated;}
+.px svg{display:block; width:100%; height:auto;}
+
+/* 구름 */
+@keyframes drift{from{transform:translateX(2100px);} to{transform:translateX(-560px);}}
+.cloud{position:absolute; image-rendering:pixelated; opacity:.95;}
+.cloud svg{display:block; width:100%; height:auto;}
+.cl-a{width:340px; top:140px; animation:drift 86s linear infinite;}
+.cl-b{width:230px; top:320px; animation:drift 124s linear infinite; animation-delay:-45s; opacity:.85;}
+.cl-c{width:420px; top:66px;  animation:drift 150s linear infinite; animation-delay:-98s; opacity:.7;}
+
+/* 지면 */
+.ground{position:absolute; left:0; right:0; bottom:0; image-rendering:pixelated; z-index:5;}
+.ceiling{position:absolute; left:0; right:0; top:0; image-rendering:pixelated; z-index:5;}
+
+.g-grass{height:150px;}
+.g-grass .turf{position:absolute; top:0; left:0; right:0; height:34px; background:#5CCB4E; border-top:8px solid #7EE06B;}
+.g-grass .turf::after{
+  content:''; position:absolute; left:0; right:0; top:-20px; height:20px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20' shape-rendering='crispEdges'%3E%3Crect x='0' y='10' width='10' height='10' fill='%237EE06B'/%3E%3Crect x='14' y='4' width='8' height='16' fill='%237EE06B'/%3E%3Crect x='26' y='12' width='10' height='8' fill='%237EE06B'/%3E%3C/svg%3E");
+  background-repeat:repeat-x;
+}
+.g-grass .soil{
+  position:absolute; top:34px; left:0; right:0; bottom:0; background:#B4571F;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' shape-rendering='crispEdges'%3E%3Crect x='8' y='12' width='8' height='8' fill='%237C3A12'/%3E%3Crect x='38' y='30' width='8' height='8' fill='%237C3A12'/%3E%3Crect x='20' y='46' width='8' height='8' fill='%237C3A12'/%3E%3Crect x='50' y='6' width='6' height='6' fill='%23C9702F'/%3E%3C/svg%3E");
+}
+
+/* 지하 — 파란 벽돌 */
+.g-cave, .c-cave{
+  background:#2E5CC8;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' shape-rendering='crispEdges'%3E%3Crect width='120' height='60' fill='%232E5CC8'/%3E%3Crect y='0' width='120' height='6' fill='%23101E5E'/%3E%3Crect y='30' width='120' height='6' fill='%23101E5E'/%3E%3Crect x='0' y='6' width='6' height='24' fill='%23101E5E'/%3E%3Crect x='60' y='6' width='6' height='24' fill='%23101E5E'/%3E%3Crect x='30' y='36' width='6' height='24' fill='%23101E5E'/%3E%3Crect x='90' y='36' width='6' height='24' fill='%23101E5E'/%3E%3Crect x='8' y='10' width='14' height='6' fill='%235C86FF'/%3E%3Crect x='68' y='12' width='16' height='6' fill='%235C86FF'/%3E%3Crect x='38' y='40' width='14' height='6' fill='%235C86FF'/%3E%3C/svg%3E");
+}
+.g-cave{height:150px; border-top:8px solid #101E5E;}
+.c-cave{height:96px;  border-bottom:8px solid #101E5E;}
+
+/* 성 — 돌바닥 */
+.g-stone{
+  height:150px; background:#6E6A8E; border-top:8px solid #2A2545;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='60' shape-rendering='crispEdges'%3E%3Crect width='120' height='60' fill='%236E6A8E'/%3E%3Crect y='0' width='120' height='6' fill='%232A2545'/%3E%3Crect y='30' width='120' height='6' fill='%232A2545'/%3E%3Crect x='0' y='6' width='6' height='24' fill='%232A2545'/%3E%3Crect x='60' y='6' width='6' height='24' fill='%232A2545'/%3E%3Crect x='30' y='36' width='6' height='24' fill='%232A2545'/%3E%3Crect x='90' y='36' width='6' height='24' fill='%232A2545'/%3E%3Crect x='12' y='12' width='14' height='8' fill='%238A85AE'/%3E%3Crect x='72' y='42' width='14' height='8' fill='%238A85AE'/%3E%3C/svg%3E");
+}
+
+/* 반짝임 */
+.sparkle{
+  position:absolute; z-index:7; width:26px; height:26px;
+  background:
+    linear-gradient(#FFF9D6 0 0) center/100% 26% no-repeat,
+    linear-gradient(#FFF9D6 0 0) center/26% 100% no-repeat;
+  animation:twinkle 1.6s ease-in-out infinite;
+}
+@keyframes twinkle{
+  0%,100%{transform:scale(.35) rotate(0deg); opacity:.2;}
+  50%    {transform:scale(1) rotate(45deg); opacity:1;}
+}
+
+/* 코인 회전 */
+@keyframes spin{
+  0%,100%{transform:scaleX(1);} 25%{transform:scaleX(.22);}
+  50%{transform:scaleX(-1);}    75%{transform:scaleX(.22);}
+}
+.anim-coin{animation:spin 1.8s steps(8,end) infinite;}
+@keyframes bob{0%,100%{transform:translateY(0);} 50%{transform:translateY(-14px);}}
+.anim-bob{animation:bob 2.6s ease-in-out infinite;}
+
+/* ══════════════════════════════════════
+   주인공 — 걷기 2프레임 · 점프
+   구조: .hero(위치) > .flip(좌우반전) > .jumper(점프) > .fr(프레임)
+   각 변형을 다른 요소가 맡아야 서로 덮어쓰지 않습니다.
+   ══════════════════════════════════════ */
+.hero{position:absolute; z-index:9; image-rendering:pixelated;}
+.hero .flip{position:absolute; inset:0;}
+.hero .jumper{position:absolute; inset:0;}
+.hero .fr{position:absolute; inset:0;}
+.hero .fr svg{display:block; width:100%; height:auto;}
+.hero .f2,.hero .f3{opacity:0;}
+
+@keyframes frA{0%,49%{opacity:1;} 50%,100%{opacity:0;}}
+@keyframes frB{0%,49%{opacity:0;} 50%,100%{opacity:1;}}
+.hero.walk .f1{animation:frA .34s steps(1,end) infinite;}
+.hero.walk .f2{animation:frB .34s steps(1,end) infinite;}
+
+/* 점프 — 블록을 치러 올라갔다 내려옵니다 */
+.hero.jump .f1,.hero.jump .f2{opacity:0 !important; animation:none !important;}
+.hero.jump .f3{opacity:1;}
+@keyframes heroJump{
+  0%  {transform:translateY(0);}
+  42% {transform:translateY(-136px);}
+  54% {transform:translateY(-136px);}
+  100%{transform:translateY(0);}
+}
+.hero.jump .jumper{animation:heroJump .72s cubic-bezier(.3,.05,.4,1);}
+
+/* 배경에서 돌아다니는 주인공.
+   블록 높이가 무대마다 달라서 점프 높이를 --hop 변수로 받습니다. */
+@keyframes strollJump{
+  0%  {transform:translateY(0);}
+  44% {transform:translateY(var(--hop,-204px));}
+  56% {transform:translateY(var(--hop,-204px));}
+  100%{transform:translateY(0);}
+}
+.hero.hop .jumper{animation:strollJump .82s cubic-bezier(.3,.05,.4,1);}
+.hero.hop .f1,.hero.hop .f2{opacity:0 !important; animation:none !important;}
+.hero.hop .f3{opacity:1;}
+
+/* ══════════════════════════════════════
+   방해꾼 — 밤톨이
+   ══════════════════════════════════════ */
+.foe{position:absolute; z-index:9; image-rendering:pixelated;}
+.foe .flip{position:absolute; inset:0;}
+.foe .fr{position:absolute; inset:0;}
+.foe .fr svg{display:block; width:100%; height:auto;}
+.foe .g2,.foe .gflat{opacity:0;}
+.foe .g1{animation:frA .42s steps(1,end) infinite;}
+.foe .g2{animation:frB .42s steps(1,end) infinite;}
+.foe.squash .g1,.foe.squash .g2{opacity:0 !important; animation:none !important;}
+.foe.squash .gflat{opacity:1;}
+.foe.squash{animation:foeGone 1s ease-out forwards;}
+@keyframes foeGone{
+  0%  {opacity:1;}
+  70% {opacity:1;}
+  100%{opacity:0;}
+}
+
+/* ══════════════════════════════════════
+   배경 ? 블록 — 지나가다 툭 치고 갑니다
+   ══════════════════════════════════════ */
+.bbox{position:absolute; z-index:8; image-rendering:pixelated;}
+.bbox .face{position:absolute; inset:0;}
+.bbox .face svg{display:block; width:100%; height:auto;}
+.bbox .used{opacity:0;}
+.bbox.opened .q{opacity:0;}
+.bbox.opened .used{opacity:1;}
+.bbox.bump{animation:boxBump .42s cubic-bezier(.3,0,.4,1);}
+
+/* 주워 먹는 코인 */
+.amb-coin{position:absolute; z-index:8; image-rendering:pixelated;}
+.amb-coin .spin{display:block; animation:spin 1.8s steps(8,end) infinite;}
+.amb-coin .spin svg{display:block; width:100%; height:auto;}
+.amb-coin.taken{animation:coinTaken .55s ease-out forwards;}
+@keyframes coinTaken{
+  0%  {transform:translateY(0) scale(1); opacity:1;}
+  100%{transform:translateY(-110px) scale(1.35); opacity:0;}
+}
+
+/* 나비 · 반딧불이 */
+.flutter{position:absolute; z-index:7; image-rendering:pixelated;}
+.flutter svg{display:block; width:100%; height:auto;}
+@keyframes flutterPath{
+  0%  {transform:translate(0,0);}
+  25% {transform:translate(460px,-56px);}
+  50% {transform:translate(920px,26px);}
+  75% {transform:translate(1380px,-40px);}
+  100%{transform:translate(1840px,0);}
+}
+@keyframes wingBeat{0%,49%{transform:scaleX(1);} 50%,100%{transform:scaleX(.58);}}
+.flutter{animation:flutterPath 26s linear infinite;}
+.flutter .body{display:block; animation:wingBeat .2s steps(1,end) infinite;}
+
+.firefly{
+  position:absolute; z-index:7;
+  width:16px; height:16px; border-radius:50%;
+  background:#BDF6FF;
+  box-shadow:0 0 22px 8px rgba(120,240,255,.55);
+  animation:fireflyPath 19s ease-in-out infinite, fireflyGlow 2.4s ease-in-out infinite;
+}
+@keyframes fireflyPath{
+  0%  {transform:translate(0,0);}
+  20% {transform:translate(340px,-120px);}
+  45% {transform:translate(760px,60px);}
+  70% {transform:translate(1180px,-90px);}
+  100%{transform:translate(1620px,20px);}
+}
+@keyframes fireflyGlow{0%,100%{opacity:.25;} 50%{opacity:1;}}
+
+/* ══════════════════════════════════════
+   ? 블록 — 정답이 들어 있는 상자
+   ══════════════════════════════════════ */
+.qbox{position:absolute; z-index:8; image-rendering:pixelated;}
+.qbox .face{position:absolute; inset:0;}
+.qbox .face svg{display:block; width:100%; height:auto;}
+.qbox .used{opacity:0;}
+@keyframes qPulse{
+  0%,100%{filter:brightness(1);}
+  50%    {filter:brightness(1.18);}
+}
+.qbox .q{animation:qPulse 1.1s ease-in-out infinite;}
+
+@keyframes boxBump{
+  0%  {transform:translateY(0);}
+  30% {transform:translateY(-44px);}
+  100%{transform:translateY(0);}
+}
+.qbox.bump{animation:boxBump .42s cubic-bezier(.3,0,.4,1);}
+.qbox.opened .q{opacity:0; animation:none;}
+.qbox.opened .used{opacity:1;}
+
+/* 블록에서 튀어나오는 코인 */
+@keyframes coinPop{
+  0%  {transform:translateY(0) scaleX(1); opacity:0;}
+  8%  {opacity:1;}
+  45% {transform:translateY(-300px) scaleX(-1);}
+  100%{transform:translateY(-40px) scaleX(1); opacity:0;}
+}
+.pop-coin{
+  position:absolute; z-index:10; width:74px;
+  image-rendering:pixelated;
+  animation:coinPop .78s cubic-bezier(.2,.6,.5,1) forwards;
+}
+.pop-coin svg{display:block; width:100%; height:auto;}
+
+/* +1000 점수 */
+@keyframes scorePop{
+  0%  {transform:translateY(0); opacity:0;}
+  15% {opacity:1;}
+  100%{transform:translateY(-190px); opacity:0;}
+}
+.pop-score{
+  position:absolute; z-index:11;
+  font-family:var(--f-pixel); font-size:30px; color:#fff;
+  text-shadow:3px 3px 0 #000;
+  animation:scorePop 1s ease-out forwards;
+}
+
+/* ══════════════════════════════════════
+   HUD — 마리오식 정보 바
+   ══════════════════════════════════════ */
+#hud{
+  position:absolute; top:38px; left:0; right:0;
+  z-index:60;
+  display:flex; justify-content:center; gap:96px;
+  font-family:var(--f-pixel);
+  color:#fff;
+  text-shadow:4px 4px 0 rgba(0,0,0,.55);
+  pointer-events:none;
+}
+#hud .col{display:flex; flex-direction:column; align-items:center; gap:12px;}
+#hud .k{font-size:24px; letter-spacing:.06em;}
+#hud .v{font-size:28px;}
+#hud .coin-ico{width:26px; vertical-align:-3px; margin-right:6px;}
+#hud .v.blink{animation:hudBlink .5s steps(1,end) 4;}
+@keyframes hudBlink{0%,49%{color:#F6CE3C;} 50%,100%{color:#fff;}}
+#hud .lives{display:flex; gap:8px; align-items:center;}
+#hud .lives .hd{width:26px;}
+
+/* ══════════════════════════════════════
+   콘텐츠
+   ══════════════════════════════════════ */
+.content{
+  position:absolute; inset:0; z-index:20;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding:200px 130px 210px;
+  text-align:center;
+}
+.content--top{justify-content:flex-start;}
+
+.title-kr{
+  font-family:var(--f-kr-pixel); font-weight:400;
+  font-size:126px; line-height:1.1;
+  color:var(--text); letter-spacing:.04em;
+  text-shadow:0 8px 0 rgba(0,0,0,.18);
+}
+.title-en{
+  font-family:var(--f-pixel); font-size:120px; line-height:1.32;
+  color:var(--gold); letter-spacing:.02em;
+  text-shadow:
+     6px 0 0 var(--ink), -6px 0 0 var(--ink), 0 6px 0 var(--ink), 0 -6px 0 var(--ink),
+     6px 6px 0 var(--ink), -6px -6px 0 var(--ink), 6px -6px 0 var(--ink), -6px 6px 0 var(--ink),
+     0 18px 0 rgba(0,0,0,.2);
+}
+.title-quiz{
+  font-family:var(--f-pixel); font-size:72px; color:#fff; letter-spacing:.04em;
+  text-shadow:
+     6px 0 0 var(--ink-2), -6px 0 0 var(--ink-2), 0 6px 0 var(--ink-2), 0 -6px 0 var(--ink-2),
+     6px 6px 0 var(--ink-2), -6px -6px 0 var(--ink-2), 6px -6px 0 var(--ink-2), -6px 6px 0 var(--ink-2),
+     0 16px 0 rgba(0,0,0,.22);
+}
+
+.eyebrow{font-weight:800; font-size:42px; color:var(--text); opacity:.92;}
+
+.body-text{
+  font-weight:800; font-size:58px; line-height:1.62;
+  color:var(--text); letter-spacing:-.02em;
+  text-shadow:0 3px 0 var(--text-sh);
+}
+.body-text .hl-red{color:var(--red-d);}
+.slide[data-theme="underground"] .body-text .hl-red,
+.slide[data-theme="castle"] .body-text .hl-red{color:#FF8A72;}
+.body-text .hl-gold{
+  color:var(--gold);
+  text-shadow:
+    3px 0 0 var(--ink), -3px 0 0 var(--ink), 0 3px 0 var(--ink), 0 -3px 0 var(--ink),
+    3px 3px 0 var(--ink), -3px -3px 0 var(--ink), 3px -3px 0 var(--ink), -3px 3px 0 var(--ink);
+}
+
+.q-text{
+  font-weight:800; font-size:68px; line-height:1.42;
+  color:var(--text); letter-spacing:-.03em;
+  text-shadow:0 4px 0 var(--text-sh);
+}
+.q-note{font-weight:800; font-size:30px; color:var(--text); opacity:.72; margin-top:16px;}
+
+/* ── 규칙 카드 ─────────────────────── */
+.rule-list{display:flex; flex-direction:column; gap:24px; width:1400px;}
+.rule{
+  display:flex; align-items:center; gap:36px;
+  background:var(--panel); border:8px solid var(--panel-line); border-radius:26px;
+  padding:26px 44px; box-shadow:0 10px 0 rgba(0,0,0,.28); text-align:left;
+}
+.rule .num{font-family:var(--f-pixel); font-size:34px; color:var(--red); flex:0 0 auto;}
+.rule .txt{font-weight:800; font-size:52px; color:var(--text); letter-spacing:-.03em;}
+.rule .txt em{font-style:normal; color:var(--red-d);}
+.slide[data-theme="underground"] .rule .txt em{color:#FFC46B;}
+
+/* ── 보기 — ?블록 위에 얹힌 카드 ───── */
+.options{display:flex; flex-wrap:wrap; justify-content:center; gap:22px 34px; max-width:1420px;}
+.option{
+  display:flex; align-items:center; gap:16px;
+  background:var(--panel);
+  border:6px solid var(--panel-line);
+  border-radius:18px;
+  padding:12px 30px 14px 14px;
+  box-shadow:0 8px 0 rgba(0,0,0,.26);
+  font-weight:800; font-size:var(--opt,54px);
+  color:var(--text); letter-spacing:-.02em;
+}
+.option .blk{width:calc(var(--opt,54px) * 1.16); flex:0 0 auto; image-rendering:pixelated;}
+.option .blk svg{display:block; width:100%; height:auto;}
+.option .no{
+  font-family:var(--f-pixel);
+  font-size:calc(var(--opt,54px) * .5);
+  color:var(--red); flex:0 0 auto;
+}
+
+/* 보기 전용 화면 (Q9) */
+.option-row{display:flex; justify-content:space-between; width:1580px; margin-top:56px;}
+.option-row .slot{display:flex; flex-direction:column; align-items:center; gap:20px;}
+.option-row .blk{width:112px; image-rendering:pixelated;}
+.option-row .blk svg{display:block; width:100%; height:auto;}
+.option-row .no{font-family:var(--f-pixel); font-size:34px; color:#fff; text-shadow:3px 3px 0 var(--ink-2);}
+.option-row .label{font-weight:800; font-size:42px; color:var(--text); min-height:52px;}
+
+/* ── 정답 말풍선 ───────────────────── */
+/* 주인공과 ?블록은 왼쪽, 정답 말풍선은 오른쪽에 놓아 서로 겹치지 않게 합니다 */
+.answer-bubble{
+  position:absolute; left:760px; top:398px;
+  background:var(--paper); border:10px solid var(--ink); border-radius:26px;
+  padding:34px 68px;
+  box-shadow:0 12px 0 var(--gold-d), 0 12px 0 8px rgba(0,0,0,.25);
+  font-weight:800; font-size:66px; color:var(--ink-2); letter-spacing:-.02em;
+  display:flex; align-items:center; gap:22px;
+  white-space:nowrap;
+  opacity:0;
+}
+.answer-bubble .no{font-family:var(--f-pixel); font-size:38px; color:var(--red);}
+.answer-bubble--blank{
+  top:296px;
+  width:940px; height:420px; padding:34px 40px;
+  align-items:flex-start; font-size:54px; white-space:normal;
+}
+@keyframes bubblePop{
+  0%  {opacity:0; transform:translateY(40px) scale(.7);}
+  60% {opacity:1; transform:translateY(0) scale(1.06);}
+  100%{opacity:1; transform:translateY(0) scale(1);}
+}
+.revealed .answer-bubble{animation:bubblePop .5s cubic-bezier(.2,1.4,.4,1) forwards;}
+
+/* 정답 전 안내 */
+.tease{
+  position:absolute; left:860px; top:432px;
+  font-family:var(--f-kr-pixel); font-size:56px; color:#fff;
+  text-shadow:5px 5px 0 var(--ink-2);
+  animation:teaseBlink 1s steps(1,end) infinite;
+}
+@keyframes teaseBlink{0%,60%{opacity:1;} 61%,100%{opacity:.25;}}
+.revealed .tease{display:none;}
+
+/* ── START 버튼 ────────────────────── */
+.btn-start{
+  font-family:var(--f-pixel); font-size:46px; color:#fff;
+  background:var(--red); border:8px solid var(--ink); border-radius:20px;
+  padding:24px 56px 28px;
+  box-shadow:0 10px 0 var(--red-d), 0 10px 0 8px rgba(0,0,0,.24);
+  letter-spacing:.06em;
+  animation:btnPulse 1.6s ease-in-out infinite;
+}
+@keyframes btnPulse{0%,100%{transform:translateY(0);} 50%{transform:translateY(-10px);}}
+
+/* ══════════════════════════════════════
+   등장 애니메이션
+   ══════════════════════════════════════ */
+[data-anim]{opacity:0;}
+.is-active [data-anim]{animation:popIn .6s cubic-bezier(.18,1.5,.42,1) forwards; animation-delay:calc(var(--d,0) * 1ms);}
+@keyframes popIn{
+  0%{opacity:0; transform:translateY(80px) scale(.9);}
+  60%{opacity:1;}
+  100%{opacity:1; transform:translateY(0) scale(1);}
+}
+.is-active [data-anim="drop"]{animation:dropIn .56s cubic-bezier(.22,1.4,.36,1) forwards; animation-delay:calc(var(--d,0) * 1ms);}
+@keyframes dropIn{0%{opacity:0; transform:translateY(-120px) rotate(-3deg);} 100%{opacity:1; transform:translateY(0) rotate(0);}}
+.is-active [data-anim="slideL"]{animation:slideL .48s cubic-bezier(.2,.9,.3,1) forwards; animation-delay:calc(var(--d,0) * 1ms);}
+@keyframes slideL{0%{opacity:0; transform:translateX(-80px);} 100%{opacity:1; transform:translateX(0);}}
+
+/* 화면 전환 — 마리오식 원형 아이리스 */
+#slides{position:absolute; inset:0; clip-path:circle(150% at 50% 50%);}
+#slides.iris{transition:clip-path .26s ease-in; clip-path:circle(0% at 50% 50%);}
+#slides.iris-open{transition:clip-path .32s ease-out; clip-path:circle(150% at 50% 50%);}
+
+/* ══════════════════════════════════════
+   월드 인터미션 카드
+   ══════════════════════════════════════ */
+#world-card{
+  position:absolute; inset:0; z-index:190;
+  display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:52px;
+  background:#000;
+}
+#world-card.show{display:flex;}
+#world-card .wtitle{
+  font-family:var(--f-pixel); font-size:76px; color:#fff; letter-spacing:.08em;
+}
+#world-card .wsub{font-family:var(--f-kr-pixel); font-size:40px; color:#F6CE3C;}
+#world-card .wlives{display:flex; align-items:center; gap:22px;}
+#world-card .wlives .ico{width:76px; image-rendering:pixelated;}
+#world-card .wlives .x{font-family:var(--f-pixel); font-size:38px; color:#fff;}
+
+/* ══════════════════════════════════════
+   3초 타이머
+   ══════════════════════════════════════ */
+#timer{
+  position:absolute; inset:0; z-index:150;
+  display:none; align-items:center; justify-content:center;
+  background:rgba(6,9,26,.6);
+}
+#timer.show{display:flex;}
+#timer .num{
+  font-family:var(--f-pixel); font-size:300px; color:var(--gold);
+  text-shadow:
+    10px 0 0 var(--ink-2), -10px 0 0 var(--ink-2), 0 10px 0 var(--ink-2), 0 -10px 0 var(--ink-2),
+    10px 10px 0 var(--ink-2), -10px -10px 0 var(--ink-2);
+  animation:tick .9s cubic-bezier(.2,1.4,.4,1);
+}
+#timer .num.small{font-size:150px;}
+@keyframes tick{0%{transform:scale(2.2); opacity:0;} 30%{transform:scale(1); opacity:1;} 100%{transform:scale(1); opacity:1;}}
+
+/* 색종이 */
+.confetti{position:absolute; z-index:120; width:20px; height:20px; image-rendering:pixelated; pointer-events:none;}
+
+/* ══════════════════════════════════════
+   진행 표시 · 안내 · 목차
+   ══════════════════════════════════════ */
+#progress{position:absolute; left:0; right:0; bottom:0; height:12px; background:rgba(0,0,0,.28); z-index:80;}
+#progress .bar{height:100%; width:0; background:var(--gold); border-right:4px solid rgba(0,0,0,.5); transition:width .42s cubic-bezier(.3,1,.4,1);}
+
+#pagenum{
+  position:absolute; left:52px; bottom:42px; z-index:80;
+  font-family:var(--f-pixel); font-size:22px; color:#fff; opacity:.5;
+  text-shadow:2px 2px 0 rgba(0,0,0,.6);
+}
+#help{
+  position:absolute; right:52px; bottom:38px; z-index:80;
+  font-weight:800; font-size:23px; color:#fff;
+  background:rgba(0,0,0,.5); border:3px solid rgba(255,255,255,.35); border-radius:14px;
+  padding:11px 18px; opacity:0; transition:opacity .4s; pointer-events:none;
+}
+#help.show{opacity:1;}
+#help kbd{font-family:var(--f-pixel); font-size:14px; background:#fff; color:#000; padding:5px 7px; border-radius:5px; margin:0 2px;}
+
+#overview{position:absolute; inset:0; z-index:180; display:none; background:rgba(4,6,20,.95); padding:64px 74px; overflow:auto;}
+#overview.show{display:block;}
+#overview h2{font-family:var(--f-pixel); font-size:30px; color:var(--gold); margin-bottom:30px; letter-spacing:.05em;}
+#overview .grid{display:grid; grid-template-columns:repeat(5,1fr); gap:18px;}
+#overview .card{
+  background:rgba(255,255,255,.08); border:4px solid rgba(255,255,255,.18); border-radius:14px;
+  padding:18px 20px; color:#fff; cursor:pointer; text-align:left;
+}
+#overview .card:hover,#overview .card:focus{background:var(--gold); color:var(--ink-2); border-color:#fff; outline:none;}
+#overview .card .n{font-family:var(--f-pixel); font-size:16px; opacity:.7; display:block; margin-bottom:10px;}
+#overview .card .t{font-weight:800; font-size:26px; letter-spacing:-.02em;}
+#overview .card.now{border-color:var(--gold);}
+
+#mute{position:absolute; right:60px; top:150px; z-index:80; font-family:var(--f-pixel); font-size:17px; color:#fff; opacity:0; transition:opacity .3s;}
+#mute.show{opacity:.65;}
+
+/* 세로 화면 안내 */
+#rotate{
+  position:fixed; inset:0; z-index:500; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:32px;
+  padding:40px; background:linear-gradient(180deg,#1B2A4A 0%,#0C1330 100%); text-align:center;
+}
+#rotate .icon{width:116px; image-rendering:pixelated; animation:tilt 2.4s ease-in-out infinite;}
+#rotate .icon svg{display:block; width:100%; height:auto;}
+@keyframes tilt{0%,30%{transform:rotate(0deg);} 55%,85%{transform:rotate(-90deg);} 100%{transform:rotate(0deg);}}
+#rotate .head{font-family:var(--f-kr-pixel); font-size:32px; line-height:1.5; color:var(--gold);}
+#rotate .sub{font-weight:800; font-size:18px; line-height:1.8; color:#BFD4F5;}
+#rotate .sub b{color:#fff;}
+@media (orientation:portrait) and (max-width:1000px){#rotate{display:flex;}}
+
+@media (prefers-reduced-motion:reduce){
+  .cloud,.anim-coin,.anim-bob,.btn-start,.sparkle,.hero.walk .fr,#rotate .icon,.tease,.qbox .q{animation:none !important;}
+  .is-active [data-anim]{animation-duration:.01ms !important;}
+  #slides.iris,#slides.iris-open{transition:none;}
+}
+</style>
+</head>
+<body>
+
+<div id="viewport">
+ <div id="safe">
+  <div id="stage">
+    <div id="slides"></div>
+
+    <div id="hud"></div>
+
+    <div id="world-card">
+      <div class="wtitle"></div>
+      <div class="wsub"></div>
+      <div class="wlives"><span class="ico"></span><span class="x">× 3</span></div>
+    </div>
+
+    <div id="timer"><div class="num">3</div></div>
+    <div id="overview"><h2>SELECT SLIDE</h2><div class="grid"></div></div>
+
+    <div id="mute">SOUND OFF</div>
+    <div id="pagenum"></div>
+    <div id="help"></div>
+    <div id="progress"><div class="bar"></div></div>
+  </div>
+ </div>
+</div>
+
+<div id="rotate">
+  <div class="icon">
+    <svg viewBox="0 0 24 24" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+      <g fill="#F6CE3C"><rect x="6" y="2" width="12" height="20"/></g>
+      <g fill="#0C1330"><rect x="7" y="4" width="10" height="15"/></g>
+      <g fill="#5CCB4E"><rect x="10" y="20" width="4" height="1"/></g>
+      <g fill="#4FA8F0"><rect x="8" y="6" width="8" height="2"/><rect x="8" y="10" width="5" height="2"/></g>
+    </svg>
+  </div>
+  <div class="head">화면을 가로로<br>돌려주세요</div>
+  <div class="sub">
+    가로 화면에서 슬라이드가 꽉 차게 보입니다.<br>
+    넘길 때는 <b>화면 오른쪽을 탭</b>하거나 <b>옆으로 쓸어</b> 주세요.
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   1. 픽셀 아트
+   ══════════════════════════════════════════════════════════ */
+const S = (vb, body) =>
+  `<svg viewBox="${vb}" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+
+const ART = {
+  cloud: S('0 0 32 14', `
+    <g fill="#fff">
+      <rect x="10" y="2" width="8" height="2"/><rect x="8" y="4" width="12" height="2"/>
+      <rect x="20" y="6" width="6" height="2"/><rect x="4" y="6" width="18" height="2"/>
+      <rect x="2" y="8" width="28" height="2"/><rect x="0" y="10" width="32" height="2"/>
+    </g><g fill="#DCEFFF"><rect x="0" y="12" width="32" height="2"/></g>`),
+
+  heart: S('0 0 14 12', `
+    <g fill="#E8503C">
+      <rect x="2" y="1" width="4" height="1"/><rect x="8" y="1" width="4" height="1"/>
+      <rect x="1" y="2" width="12" height="3"/><rect x="2" y="5" width="10" height="2"/>
+      <rect x="3" y="7" width="8" height="1"/><rect x="4" y="8" width="6" height="1"/>
+      <rect x="5" y="9" width="4" height="1"/><rect x="6" y="10" width="2" height="1"/>
+    </g>
+    <g fill="#FF9C8C"><rect x="3" y="2" width="2" height="2"/></g>
+    <g fill="#7E1B12">
+      <rect x="2" y="0" width="4" height="1"/><rect x="8" y="0" width="4" height="1"/>
+      <rect x="0" y="2" width="1" height="3"/><rect x="13" y="2" width="1" height="3"/>
+      <rect x="1" y="1" width="1" height="1"/><rect x="12" y="1" width="1" height="1"/>
+      <rect x="6" y="1" width="2" height="1"/>
+    </g>`),
+
+  coin: S('0 0 12 14', `
+    <g fill="#16214A">
+      <rect x="3" y="0" width="6" height="1"/><rect x="3" y="13" width="6" height="1"/>
+      <rect x="1" y="1" width="2" height="1"/><rect x="9" y="1" width="2" height="1"/>
+      <rect x="1" y="12" width="2" height="1"/><rect x="9" y="12" width="2" height="1"/>
+      <rect x="0" y="2" width="1" height="10"/><rect x="11" y="2" width="1" height="10"/>
+    </g>
+    <g fill="#F6CE3C"><rect x="1" y="2" width="10" height="10"/><rect x="3" y="1" width="6" height="1"/><rect x="3" y="12" width="6" height="1"/></g>
+    <g fill="#D9A21B"><rect x="7" y="3" width="3" height="8"/></g>
+    <g fill="#FFF0A8"><rect x="4" y="3" width="2" height="8"/></g>`),
+
+  /* ? 블록 */
+  qblock: S('0 0 16 16', `
+    <g fill="#8E5A1B"><rect width="16" height="16"/></g>
+    <g fill="#E8A33D"><rect x="1" y="1" width="14" height="14"/></g>
+    <g fill="#F6CE3C"><rect x="1" y="1" width="14" height="2"/><rect x="1" y="3" width="2" height="10"/></g>
+    <g fill="#C57A1E"><rect x="13" y="3" width="2" height="12"/><rect x="3" y="13" width="12" height="2"/></g>
+    <g fill="#8E5A1B">
+      <rect x="2" y="2" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/>
+      <rect x="2" y="13" width="1" height="1"/><rect x="13" y="13" width="1" height="1"/>
+    </g>
+    <g fill="#fff">
+      <rect x="6" y="4" width="4" height="1"/><rect x="5" y="5" width="2" height="1"/><rect x="9" y="5" width="2" height="1"/>
+      <rect x="9" y="6" width="2" height="1"/><rect x="8" y="7" width="2" height="1"/>
+      <rect x="7" y="8" width="2" height="2"/><rect x="7" y="11" width="2" height="2"/>
+    </g>`),
+
+  /* 친 뒤의 빈 블록 */
+  qblockUsed: S('0 0 16 16', `
+    <g fill="#5B3A12"><rect width="16" height="16"/></g>
+    <g fill="#A4702B"><rect x="1" y="1" width="14" height="14"/></g>
+    <g fill="#B9853A"><rect x="1" y="1" width="14" height="2"/><rect x="1" y="3" width="2" height="10"/></g>
+    <g fill="#7A5119"><rect x="13" y="3" width="2" height="12"/><rect x="3" y="13" width="12" height="2"/></g>
+    <g fill="#5B3A12">
+      <rect x="2" y="2" width="1" height="1"/><rect x="13" y="2" width="1" height="1"/>
+      <rect x="2" y="13" width="1" height="1"/><rect x="13" y="13" width="1" height="1"/>
+    </g>`),
+
+  brick: S('0 0 16 16', `
+    <rect width="16" height="16" fill="#C0472F"/>
+    <g fill="#7E2418">
+      <rect y="0" width="16" height="1"/><rect y="7" width="16" height="2"/><rect y="15" width="16" height="1"/>
+      <rect x="7" y="1" width="2" height="6"/><rect x="0" y="9" width="1" height="6"/><rect x="15" y="9" width="1" height="6"/>
+    </g>
+    <g fill="#E07B5C"><rect x="1" y="1" width="5" height="1"/><rect x="1" y="9" width="6" height="1"/></g>`),
+
+  /* 초록 파이프 */
+  pipe: S('0 0 32 40', `
+    <g fill="#1B6B2A"><rect x="0" y="0" width="32" height="10"/><rect x="3" y="10" width="26" height="30"/></g>
+    <g fill="#3CB44A"><rect x="2" y="1" width="28" height="8"/><rect x="5" y="10" width="22" height="30"/></g>
+    <g fill="#7EE06B"><rect x="4" y="2" width="5" height="6"/><rect x="7" y="11" width="5" height="28"/></g>
+    <g fill="#1B6B2A"><rect x="22" y="2" width="6" height="6"/><rect x="21" y="11" width="6" height="28"/></g>`),
+
+  /* 원경 언덕 */
+  hill: S('0 0 40 20', `
+    <g fill="#2F9B36">
+      <rect x="18" y="2" width="4" height="2"/><rect x="14" y="4" width="12" height="2"/>
+      <rect x="10" y="6" width="20" height="3"/><rect x="6" y="9" width="28" height="3"/>
+      <rect x="2" y="12" width="36" height="4"/><rect x="0" y="16" width="40" height="4"/>
+    </g>
+    <g fill="#5CCB4E">
+      <rect x="18" y="3" width="2" height="2"/><rect x="14" y="5" width="4" height="2"/>
+      <rect x="10" y="7" width="6" height="3"/><rect x="6" y="10" width="8" height="3"/>
+    </g>
+    <g fill="#1E7A28">
+      <rect x="24" y="12" width="3" height="2"/><rect x="12" y="16" width="3" height="2"/>
+      <rect x="30" y="16" width="3" height="2"/>
+    </g>`),
+
+  tree: S('0 0 22 30', `
+    <g fill="#2F9B36">
+      <rect x="6" y="1" width="9" height="2"/><rect x="4" y="3" width="13" height="2"/>
+      <rect x="2" y="5" width="17" height="7"/><rect x="4" y="12" width="13" height="4"/><rect x="6" y="16" width="9" height="2"/>
+    </g>
+    <g fill="#5CCB4E">
+      <rect x="6" y="2" width="6" height="2"/><rect x="4" y="4" width="10" height="2"/>
+      <rect x="3" y="6" width="9" height="4"/><rect x="14" y="8" width="3" height="6"/>
+    </g>
+    <g fill="#8FF089"><rect x="5" y="5" width="2" height="6"/><rect x="9" y="7" width="2" height="5"/></g>
+    <g fill="#7C3A12"><rect x="9" y="18" width="4" height="12"/></g>
+    <g fill="#A5502A"><rect x="9" y="18" width="2" height="12"/></g>
+    <g fill="#7C3A12"><rect x="5" y="21" width="4" height="2"/><rect x="13" y="24" width="4" height="2"/></g>`),
+
+  bush: S('0 0 28 10', `
+    <g fill="#2F9B36">
+      <rect x="5" y="2" width="5" height="2"/><rect x="17" y="1" width="5" height="3"/>
+      <rect x="2" y="4" width="24" height="3"/><rect x="0" y="7" width="28" height="3"/>
+    </g>
+    <g fill="#5CCB4E"><rect x="5" y="3" width="3" height="2"/><rect x="17" y="2" width="3" height="2"/><rect x="2" y="5" width="10" height="1"/></g>`),
+
+  flower: S('0 0 14 24', `
+    <g fill="#E8508F"><rect x="4" y="1" width="6" height="2"/><rect x="2" y="3" width="10" height="4"/><rect x="4" y="7" width="6" height="2"/></g>
+    <g fill="#FF8FC0"><rect x="4" y="2" width="3" height="3"/></g>
+    <g fill="#2F9B36"><rect x="6" y="9" width="2" height="15"/><rect x="1" y="12" width="5" height="2"/><rect x="8" y="16" width="5" height="2"/></g>
+    <g fill="#5CCB4E"><rect x="2" y="12" width="3" height="1"/><rect x="9" y="16" width="3" height="1"/></g>`),
+
+  /* 지하 — 종유석 */
+  stalactite: S('0 0 12 22', `
+    <g fill="#101E5E"><rect x="0" y="0" width="12" height="6"/><rect x="2" y="6" width="8" height="6"/><rect x="4" y="12" width="4" height="6"/><rect x="5" y="18" width="2" height="4"/></g>
+    <g fill="#2E5CC8"><rect x="1" y="1" width="9" height="4"/><rect x="3" y="6" width="5" height="5"/><rect x="5" y="12" width="2" height="5"/></g>
+    <g fill="#5C86FF"><rect x="2" y="2" width="3" height="3"/></g>`),
+
+  /* 지하 — 보석 */
+  gem: S('0 0 12 14', `
+    <g fill="#0B2B6B"><rect x="3" y="0" width="6" height="1"/><rect x="1" y="1" width="10" height="2"/><rect x="0" y="3" width="12" height="6"/><rect x="2" y="9" width="8" height="3"/><rect x="4" y="12" width="4" height="2"/></g>
+    <g fill="#3FD2E8"><rect x="3" y="1" width="6" height="2"/><rect x="1" y="3" width="10" height="6"/><rect x="3" y="9" width="6" height="3"/></g>
+    <g fill="#BDF6FF"><rect x="3" y="2" width="2" height="6"/><rect x="6" y="4" width="1" height="4"/></g>`),
+
+  mushroom: S('0 0 16 14', `
+    <g fill="#16214A"><rect x="3" y="0" width="10" height="1"/><rect x="1" y="1" width="14" height="1"/><rect x="0" y="2" width="16" height="6"/><rect x="2" y="8" width="12" height="6"/></g>
+    <g fill="#E8503C"><rect x="4" y="1" width="8" height="1"/><rect x="1" y="2" width="14" height="5"/></g>
+    <g fill="#fff">
+      <rect x="2" y="3" width="3" height="3"/><rect x="11" y="3" width="3" height="3"/><rect x="6" y="2" width="4" height="2"/>
+      <rect x="3" y="8" width="10" height="5"/>
+    </g>
+    <g fill="#FFD9C8"><rect x="5" y="9" width="2" height="2"/><rect x="9" y="9" width="2" height="2"/></g>`),
+
+  star: S('0 0 16 16', `
+    <g fill="#B8860B"><rect x="7" y="0" width="2" height="2"/><rect x="6" y="2" width="4" height="2"/><rect x="0" y="4" width="16" height="3"/><rect x="2" y="7" width="12" height="4"/><rect x="3" y="11" width="4" height="4"/><rect x="9" y="11" width="4" height="4"/></g>
+    <g fill="#F6CE3C"><rect x="7" y="1" width="2" height="2"/><rect x="6" y="3" width="4" height="2"/><rect x="1" y="5" width="14" height="2"/><rect x="3" y="7" width="10" height="3"/><rect x="4" y="10" width="3" height="4"/><rect x="9" y="10" width="3" height="4"/></g>
+    <g fill="#16214A"><rect x="5" y="6" width="2" height="3"/><rect x="9" y="6" width="2" height="3"/></g>`),
+
+  chest: S('0 0 24 18', `
+    <g fill="#16214A"><rect x="1" y="2" width="22" height="16"/></g>
+    <g fill="#F6CE3C"><rect x="2" y="3" width="20" height="14"/></g>
+    <g fill="#D9A21B"><rect x="2" y="7" width="20" height="2"/><rect x="16" y="9" width="6" height="8"/></g>
+    <g fill="#8E4B1C"><rect x="9" y="3" width="6" height="14"/></g>
+    <g fill="#B4571F"><rect x="9" y="3" width="3" height="14"/></g>
+    <g fill="#16214A"><rect x="10" y="8" width="4" height="4"/></g>
+    <g fill="#FFF0A8"><rect x="3" y="4" width="5" height="1"/></g>`),
+
+  /* 케이크 — 엔딩 */
+  cake: S('0 0 22 20', `
+    <g fill="#F6CE3C"><rect x="10" y="0" width="2" height="4"/></g>
+    <g fill="#E8503C"><rect x="9" y="4" width="4" height="3"/></g>
+    <g fill="#FFF"><rect x="2" y="7" width="18" height="4"/></g>
+    <g fill="#FFD3E4"><rect x="1" y="11" width="20" height="4"/></g>
+    <g fill="#F6A8CC"><rect x="1" y="11" width="20" height="1"/><rect x="4" y="12" width="2" height="3"/><rect x="10" y="12" width="2" height="3"/><rect x="16" y="12" width="2" height="3"/></g>
+    <g fill="#B4571F"><rect x="0" y="15" width="22" height="5"/></g>
+    <g fill="#8E4B1C"><rect x="0" y="18" width="22" height="2"/></g>`),
+
+  /* 성 */
+  castle: S('0 0 40 36', `
+    <g fill="#2A2545"><rect x="0" y="6" width="40" height="30"/></g>
+    <g fill="#8A85AE"><rect x="1" y="7" width="38" height="28"/></g>
+    <g fill="#6E6A8E">
+      <rect x="1" y="7" width="38" height="2"/><rect x="1" y="15" width="38" height="2"/><rect x="1" y="23" width="38" height="2"/>
+      <rect x="9" y="9" width="2" height="6"/><rect x="29" y="9" width="2" height="6"/>
+      <rect x="19" y="17" width="2" height="6"/><rect x="5" y="25" width="2" height="10"/><rect x="33" y="25" width="2" height="10"/>
+    </g>
+    <g fill="#2A2545">
+      <rect x="0" y="0" width="6" height="7"/><rect x="34" y="0" width="6" height="7"/><rect x="14" y="2" width="12" height="5"/>
+      <rect x="8" y="4" width="3" height="3"/><rect x="29" y="4" width="3" height="3"/>
+    </g>
+    <g fill="#8A85AE">
+      <rect x="1" y="1" width="4" height="6"/><rect x="35" y="1" width="4" height="6"/><rect x="15" y="3" width="10" height="4"/>
+    </g>
+    <g fill="#16214A"><rect x="16" y="24" width="8" height="12"/></g>
+    <g fill="#3C2B66"><rect x="17" y="26" width="6" height="10"/></g>
+    <g fill="#F6CE3C"><rect x="18" y="29" width="2" height="2"/></g>
+    <g fill="#4FA8F0"><rect x="10" y="18" width="3" height="4"/><rect x="27" y="18" width="3" height="4"/></g>`),
+
+  flagpole: S('0 0 14 46', `
+    <g fill="#3CB44A"><rect x="6" y="2" width="2" height="44"/></g>
+    <g fill="#7EE06B"><rect x="6" y="2" width="1" height="44"/></g>
+    <g fill="#F6CE3C"><rect x="4" y="0" width="6" height="3"/></g>
+    <g fill="#D9A21B"><rect x="4" y="2" width="6" height="1"/></g>`),
+
+  flag: S('0 0 14 12', `
+    <g fill="#E8503C"><rect x="0" y="0" width="13" height="10"/></g>
+    <g fill="#FF8A72"><rect x="0" y="0" width="13" height="2"/></g>
+    <g fill="#B32F20"><rect x="0" y="8" width="13" height="2"/></g>
+    <g fill="#fff"><rect x="4" y="3" width="5" height="4"/></g>`),
+
+  /* ── 방해꾼: 밤톨이 (걷기 2프레임 + 납작) ── */
+  foe1: S('0 0 16 14', `
+    <g fill="#5B3115"><rect x="4" y="0" width="8" height="1"/><rect x="2" y="1" width="12" height="2"/><rect x="1" y="3" width="14" height="5"/></g>
+    <g fill="#8E5A2B"><rect x="4" y="1" width="8" height="1"/><rect x="2" y="2" width="12" height="5"/></g>
+    <g fill="#B5814A"><rect x="3" y="2" width="4" height="3"/></g>
+    <g fill="#fff"><rect x="4" y="4" width="3" height="3"/><rect x="9" y="4" width="3" height="3"/></g>
+    <g fill="#16214A"><rect x="5" y="5" width="2" height="2"/><rect x="9" y="5" width="2" height="2"/></g>
+    <g fill="#5B3115"><rect x="4" y="3" width="3" height="1"/><rect x="9" y="3" width="3" height="1"/></g>
+    <g fill="#F4E3C8"><rect x="2" y="8" width="12" height="2"/></g>
+    <g fill="#5B3115"><rect x="1" y="10" width="6" height="3"/><rect x="9" y="10" width="6" height="3"/></g>
+    <g fill="#3A1E0C"><rect x="1" y="13" width="6" height="1"/><rect x="9" y="13" width="6" height="1"/></g>`),
+
+  foe2: S('0 0 16 14', `
+    <g fill="#5B3115"><rect x="4" y="0" width="8" height="1"/><rect x="2" y="1" width="12" height="2"/><rect x="1" y="3" width="14" height="5"/></g>
+    <g fill="#8E5A2B"><rect x="4" y="1" width="8" height="1"/><rect x="2" y="2" width="12" height="5"/></g>
+    <g fill="#B5814A"><rect x="3" y="2" width="4" height="3"/></g>
+    <g fill="#fff"><rect x="4" y="4" width="3" height="3"/><rect x="9" y="4" width="3" height="3"/></g>
+    <g fill="#16214A"><rect x="5" y="5" width="2" height="2"/><rect x="9" y="5" width="2" height="2"/></g>
+    <g fill="#5B3115"><rect x="4" y="3" width="3" height="1"/><rect x="9" y="3" width="3" height="1"/></g>
+    <g fill="#F4E3C8"><rect x="2" y="8" width="12" height="2"/></g>
+    <g fill="#5B3115"><rect x="2" y="10" width="6" height="4"/><rect x="8" y="10" width="6" height="2"/></g>
+    <g fill="#3A1E0C"><rect x="8" y="12" width="6" height="1"/></g>`),
+
+  foeFlat: S('0 0 16 14', `
+    <g fill="#5B3115"><rect x="0" y="10" width="16" height="1"/><rect x="1" y="11" width="14" height="3"/></g>
+    <g fill="#8E5A2B"><rect x="2" y="11" width="12" height="2"/></g>
+    <g fill="#fff"><rect x="4" y="11" width="2" height="2"/><rect x="10" y="11" width="2" height="2"/></g>
+    <g fill="#16214A"><rect x="4" y="12" width="2" height="1"/><rect x="10" y="12" width="2" height="1"/></g>`),
+
+  /* 나비 — 지상에서 팔랑팔랑 */
+  butterfly: S('0 0 16 12', `
+    <g fill="#16214A"><rect x="7" y="3" width="2" height="7"/><rect x="6" y="1" width="1" height="2"/><rect x="9" y="1" width="1" height="2"/></g>
+    <g class="wing-l" fill="#F6CE3C"><rect x="1" y="2" width="6" height="4"/><rect x="0" y="4" width="7" height="4"/></g>
+    <g class="wing-r" fill="#F6CE3C"><rect x="9" y="2" width="6" height="4"/><rect x="9" y="4" width="7" height="4"/></g>
+    <g fill="#E8508F"><rect x="2" y="3" width="3" height="2"/><rect x="11" y="3" width="3" height="2"/></g>
+    <g fill="#FFF3A8"><rect x="1" y="6" width="3" height="1"/><rect x="12" y="6" width="3" height="1"/></g>`),
+
+  /* ── 주인공: 배관공 복장을 한 아기 채원 ──
+     빨간 모자 · 콧수염 · 빨간 상의 · 파란 멜빵바지 · 흰 장갑 · 갈색 신발 */
+  baby1: S('0 0 16 22', `
+    <g fill="#E8503C">
+      <rect x="5" y="0" width="6" height="1"/><rect x="4" y="1" width="8" height="1"/>
+      <rect x="3" y="2" width="10" height="1"/><rect x="1" y="3" width="13" height="1"/>
+      <rect x="1" y="4" width="4" height="1"/>
+    </g>
+    <g fill="#B32F20"><rect x="1" y="4" width="4" height="1"/><rect x="1" y="3" width="2" height="1"/></g>
+    <g fill="#fff"><rect x="7" y="1" width="3" height="2"/></g>
+    <g fill="#E8503C"><rect x="8" y="1" width="1" height="1"/></g>
+    <g fill="#6B3A1E">
+      <rect x="12" y="4" width="2" height="3"/><rect x="3" y="4" width="2" height="2"/>
+    </g>
+    <g fill="#FFD1A4">
+      <rect x="5" y="4" width="7" height="1"/><rect x="4" y="5" width="9" height="4"/>
+      <rect x="5" y="9" width="6" height="1"/>
+    </g>
+    <g fill="#16214A"><rect x="6" y="5" width="1" height="2"/><rect x="10" y="5" width="1" height="2"/></g>
+    <g fill="#E8A87C"><rect x="7" y="6" width="2" height="2"/></g>
+    <g fill="#6B3A1E">
+      <rect x="4" y="7" width="3" height="2"/><rect x="9" y="7" width="4" height="2"/>
+      <rect x="6" y="8" width="5" height="1"/>
+    </g>
+    <g fill="#E8503C">
+      <rect x="4" y="10" width="8" height="2"/><rect x="2" y="11" width="12" height="2"/>
+    </g>
+    <g fill="#3C63D6">
+      <rect x="6" y="10" width="1" height="3"/><rect x="9" y="10" width="1" height="3"/>
+      <rect x="4" y="13" width="8" height="4"/>
+    </g>
+    <g fill="#F6CE3C"><rect x="5" y="13" width="1" height="1"/><rect x="10" y="13" width="1" height="1"/></g>
+    <g fill="#24409B"><rect x="7" y="13" width="2" height="4"/></g>
+    <g fill="#fff"><rect x="1" y="12" width="2" height="2"/><rect x="13" y="12" width="2" height="2"/></g>
+    <g fill="#3C63D6"><rect x="4" y="17" width="3" height="2"/><rect x="9" y="17" width="3" height="2"/></g>
+    <g fill="#7C3A12">
+      <rect x="3" y="19" width="4" height="2"/><rect x="9" y="19" width="4" height="2"/>
+      <rect x="2" y="20" width="6" height="2"/><rect x="9" y="20" width="6" height="2"/>
+    </g>`),
+
+  baby2: S('0 0 16 22', `
+    <g fill="#E8503C">
+      <rect x="5" y="0" width="6" height="1"/><rect x="4" y="1" width="8" height="1"/>
+      <rect x="3" y="2" width="10" height="1"/><rect x="1" y="3" width="13" height="1"/>
+    </g>
+    <g fill="#B32F20"><rect x="1" y="4" width="4" height="1"/><rect x="1" y="3" width="2" height="1"/></g>
+    <g fill="#fff"><rect x="7" y="1" width="3" height="2"/></g>
+    <g fill="#E8503C"><rect x="8" y="1" width="1" height="1"/></g>
+    <g fill="#6B3A1E">
+      <rect x="12" y="4" width="2" height="3"/><rect x="3" y="4" width="2" height="2"/>
+    </g>
+    <g fill="#FFD1A4">
+      <rect x="5" y="4" width="7" height="1"/><rect x="4" y="5" width="9" height="4"/>
+      <rect x="5" y="9" width="6" height="1"/>
+    </g>
+    <g fill="#16214A"><rect x="6" y="5" width="1" height="2"/><rect x="10" y="5" width="1" height="2"/></g>
+    <g fill="#E8A87C"><rect x="7" y="6" width="2" height="2"/></g>
+    <g fill="#6B3A1E">
+      <rect x="4" y="7" width="3" height="2"/><rect x="9" y="7" width="4" height="2"/>
+      <rect x="6" y="8" width="5" height="1"/>
+    </g>
+    <g fill="#E8503C">
+      <rect x="4" y="10" width="8" height="2"/><rect x="2" y="10" width="2" height="3"/><rect x="12" y="12" width="2" height="2"/>
+      <rect x="3" y="12" width="10" height="1"/>
+    </g>
+    <g fill="#3C63D6">
+      <rect x="6" y="10" width="1" height="3"/><rect x="9" y="10" width="1" height="3"/>
+      <rect x="4" y="13" width="8" height="4"/>
+    </g>
+    <g fill="#F6CE3C"><rect x="5" y="13" width="1" height="1"/><rect x="10" y="13" width="1" height="1"/></g>
+    <g fill="#24409B"><rect x="7" y="13" width="2" height="4"/></g>
+    <g fill="#fff"><rect x="1" y="11" width="2" height="2"/><rect x="13" y="13" width="2" height="2"/></g>
+    <g fill="#3C63D6"><rect x="3" y="17" width="4" height="2"/><rect x="10" y="17" width="2" height="1"/></g>
+    <g fill="#7C3A12">
+      <rect x="1" y="19" width="6" height="3"/>
+      <rect x="10" y="18" width="5" height="2"/><rect x="11" y="20" width="4" height="2"/>
+    </g>`),
+
+  baby3: S('0 0 16 22', `
+    <g fill="#E8503C">
+      <rect x="5" y="0" width="6" height="1"/><rect x="4" y="1" width="8" height="1"/>
+      <rect x="3" y="2" width="10" height="1"/><rect x="1" y="3" width="13" height="1"/>
+    </g>
+    <g fill="#B32F20"><rect x="1" y="4" width="4" height="1"/><rect x="1" y="3" width="2" height="1"/></g>
+    <g fill="#fff"><rect x="7" y="1" width="3" height="2"/></g>
+    <g fill="#E8503C"><rect x="8" y="1" width="1" height="1"/></g>
+    <g fill="#6B3A1E">
+      <rect x="12" y="4" width="2" height="3"/><rect x="3" y="4" width="2" height="2"/>
+    </g>
+    <g fill="#FFD1A4">
+      <rect x="5" y="4" width="7" height="1"/><rect x="4" y="5" width="9" height="4"/>
+      <rect x="5" y="9" width="6" height="1"/>
+    </g>
+    <g fill="#16214A"><rect x="6" y="5" width="1" height="1"/><rect x="10" y="5" width="1" height="1"/></g>
+    <g fill="#E8A87C"><rect x="7" y="6" width="2" height="2"/></g>
+    <g fill="#6B3A1E">
+      <rect x="4" y="7" width="3" height="2"/><rect x="9" y="7" width="4" height="2"/>
+      <rect x="6" y="8" width="5" height="1"/>
+    </g>
+    <g fill="#E8503C">
+      <rect x="4" y="10" width="8" height="2"/>
+      <rect x="1" y="7" width="2" height="4"/><rect x="13" y="7" width="2" height="4"/>
+      <rect x="3" y="11" width="10" height="1"/>
+    </g>
+    <g fill="#3C63D6">
+      <rect x="6" y="10" width="1" height="3"/><rect x="9" y="10" width="1" height="3"/>
+      <rect x="4" y="13" width="8" height="4"/>
+    </g>
+    <g fill="#F6CE3C"><rect x="5" y="13" width="1" height="1"/><rect x="10" y="13" width="1" height="1"/></g>
+    <g fill="#24409B"><rect x="7" y="13" width="2" height="4"/></g>
+    <g fill="#fff"><rect x="1" y="5" width="2" height="2"/><rect x="13" y="5" width="2" height="2"/></g>
+    <g fill="#3C63D6"><rect x="2" y="17" width="4" height="2"/><rect x="10" y="17" width="4" height="2"/></g>
+    <g fill="#7C3A12">
+      <rect x="0" y="19" width="6" height="2"/><rect x="10" y="19" width="6" height="2"/>
+    </g>`)
+};
+
+/* ══════════════════════════════════════════════════════════
+   2. 무대 배경 — 월드별 세트
+   ══════════════════════════════════════════════════════════ */
+const px = (art, style, cls='') => ({art, style, cls});
+
+/* WORLD 1 — 지상 */
+const SET_OVER = [
+  px('hill',  'left:-40px;  bottom:150px; width:460px; opacity:.9;'),
+  px('hill',  'right:120px; bottom:150px; width:340px; opacity:.75;'),
+  px('bush',  'left:300px;  bottom:145px; width:250px;'),
+  px('tree',  'right:40px;  bottom:145px; width:230px;'),
+  px('pipe',  'right:330px; bottom:148px; width:170px;'),
+  px('flower','left:600px;  bottom:150px; width:110px;')
+];
+/* WORLD 2 — 지하 */
+const SET_CAVE = [
+  px('stalactite','left:210px;  top:92px;   width:110px;'),
+  px('stalactite','left:1420px; top:92px;   width:92px;'),
+  px('stalactite','left:820px;  top:92px;   width:76px; opacity:.8;'),
+  px('gem',       'left:120px;  bottom:158px; width:88px;',  'anim-bob'),
+  px('gem',       'right:180px; bottom:158px; width:74px;',  'anim-bob'),
+  px('mushroom',  'right:420px; bottom:152px; width:110px;'),
+  px('brick',     'left:-20px;  bottom:150px; width:130px;'),
+  px('brick',     'left:110px;  bottom:150px; width:130px;')
+];
+
+/* ══════════════════════════════════════════════════════════
+   3. 데이터 → 슬라이드
+   ── 이 렌더러는 자기 내용을 하드코딩하지 않습니다.
+   ── 아래 DATA 자리에 사용자 입력(JSON)이 주입되고,
+   ── buildSlides()가 그것으로 슬라이드 배열을 만듭니다.
+   ── 편집기 미리보기에서는 postMessage로 실시간 교체됩니다.
+   ══════════════════════════════════════════════════════════ */
+
+/* 빌드할 때 아래 마커가 사용자 데이터(JSON)로 치환됩니다. */
+const DATA = /*__DATA__*/ null;
+
+/* 문제 번호 → WORLD 표기 (5문제마다 월드가 바뀝니다) */
+const worldOf  = no => Math.floor((no - 1) / 5) + 1;
+const stageOf  = no => ((no - 1) % 5) + 1;
+const stageTag = no => worldOf(no) + '-' + stageOf(no);
+
+/* ── 배경 프리셋 ── */
+const PROPS_TITLE = [
+  px('hill','left:-60px; bottom:150px; width:480px; opacity:.85;'),
+  px('hill','right:60px; bottom:150px; width:380px; opacity:.7;'),
+  px('bush','left:180px; bottom:145px; width:280px;'),
+  px('bush','right:120px;bottom:145px; width:250px;'),
+  px('qblock','left:250px;  bottom:470px; width:120px;'),
+  px('qblock','right:250px; bottom:470px; width:120px;'),
+  px('pipe','right:390px; bottom:148px; width:180px;')
+];
+const PROPS_GREET = [
+  px('tree','left:20px;  bottom:145px; width:240px;'),
+  px('tree','right:20px; bottom:145px; width:260px;'),
+  px('bush','left:250px; bottom:145px; width:220px;')
+];
+const PROPS_RULES = [
+  px('qblock','left:60px;   bottom:520px; width:110px;'),
+  px('brick', 'left:170px;  bottom:520px; width:110px;'),
+  px('qblock','right:60px;  bottom:520px; width:110px;'),
+  px('bush',  'left:-20px;  bottom:145px; width:260px;'),
+  px('bush',  'right:-10px; bottom:145px; width:240px;')
+];
+const PROPS_START = [
+  px('hill','right:-40px; bottom:150px; width:420px; opacity:.8;'),
+  px('bush','right:280px; bottom:145px; width:230px;'),
+  px('pipe','right:60px;  bottom:148px; width:180px;'),
+  px('coin','left:640px;  bottom:520px; width:80px;', 'anim-coin'),
+  px('coin','left:790px;  bottom:520px; width:80px;', 'anim-coin'),
+  px('coin','left:940px;  bottom:520px; width:80px;', 'anim-coin')
+];
+const PROPS_CLEAR = [
+  px('castle',  'right:120px; bottom:148px; width:520px;'),
+  px('flagpole','left:640px;  bottom:148px; width:110px;'),
+  px('flag',    'left:587px;  bottom:406px; width:100px;'),
+  px('cake',    'left:270px;  bottom:150px; width:200px;'),
+  px('star',    'left:250px;  bottom:640px; width:90px;',  'anim-bob'),
+  px('star',    'right:700px; bottom:720px; width:70px;',  'anim-bob'),
+  px('coin',    'left:900px;  bottom:560px; width:80px;',  'anim-coin')
+];
+
+/* 월드별 무대 — 홀수 월드는 지상, 짝수 월드는 지하 */
+const stageOfWorld = w => (w % 2 === 1)
+  ? {theme:'overworld',   ground:'grass', props:SET_OVER}
+  : {theme:'underground', ground:'cave',  props:SET_CAVE, ceiling:true};
+
+/* ── 사용자 글 → 화면 ──
+   폼에서는 HTML을 쓸 수 없습니다. 그래서 아주 얇은 표기만 지원합니다.
+     줄바꿈    엔터 그대로
+     *강조*    빨강 (규칙 화면에서는 밑줄 강조)
+     **강조**  금색
+   그 밖의 < > & 는 전부 escape 합니다.
+   남의 글을 그대로 화면에 심는 서비스라, 여기서 새면 그대로 XSS가 됩니다. */
+const esc = v => String(v == null ? '' : v)
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function inline(v, style){
+  const o1 = style === 'em' ? '<em>' : '<span class="hl-red">';
+  const c1 = style === 'em' ? '</em>' : '</span>';
+  return esc(v)
+    .replace(/\*\*([^*]+)\*\*/g, '<span class="hl-gold">$1</span>')
+    .replace(/\*([^*]+)\*/g, o1 + '$1' + c1)
+    .replace(/\r?\n/g, '<br>');
+}
+
+/* ── 글자 크기 자동 계산 ──
+   예전에는 qSize/optSize를 사람이 손으로 맞췄습니다. 서비스에서는
+   사용자에게 폰트 크기를 물어볼 수 없으므로 길이로 자동 계산합니다.
+   한글은 넓고 영문·숫자는 좁아서 가중치를 다르게 셉니다. */
+const CJK = /[\u1100-\u11FF\u3130-\u318F\uAC00-\uD7AF\u4E00-\u9FFF\u3000-\u303F\uFF00-\uFFEF]/;
+const stripTags = v => String(v == null ? '' : v).replace(/<[^>]*>/g, '');
+const visualLen = v => [...stripTags(v)].reduce(
+  (a, ch) => a + (CJK.test(ch) ? 1 : ch === ' ' ? .35 : .55), 0);
+
+function autoQSize(q){
+  const lines = String(q || '').split(/\r?\n|<br\s*\/?>/i);
+  const w = Math.max(0, ...lines.map(visualLen));
+  let size = 68;
+  if(w > 19) size = 64;
+  if(w > 23) size = 58;
+  if(w > 27) size = 52;
+  if(w > 32) size = 46;
+  if(lines.length >= 3) size = Math.min(size, 58);
+  if(lines.length >= 4) size = Math.min(size, 48);
+  return size;
+}
+function autoOptSize(list){
+  const w = Math.max(0, ...(list || []).map(visualLen));
+  if(w <= 3.5) return 54;
+  if(w <= 5)   return 50;
+  if(w <= 8)   return 46;
+  if(w <= 10)  return 42;
+  return 38;
+}
+
+/* ── 입력값 보정 ── 폼이 덜 채워져 있어도 미리보기가 깨지지 않게 합니다 */
+const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮';
+const arr = v => Array.isArray(v) ? v : [];
+
+function normalize(d){
+  d = d || {};
+  return {
+    hud:      Object.assign({name:'', lives:3}, d.hud),
+    cover:    Object.assign({eyebrow:'', titleEn:['QUIZ','GAME']}, d.cover),
+    greeting: Object.assign({title:'인사말',    lines:[]}, d.greeting),
+    rules:    Object.assign({title:'게임 규칙', items:[]}, d.rules),
+    start:    Object.assign({title:'게임 시작', lines:[]}, d.start),
+    ending:   Object.assign({title:'COURSE CLEAR!', lines:[], showCoins:true}, d.ending),
+    quiz:     arr(d.quiz).map(q => Object.assign({
+                question:'', note:'', options:[], answerIndex:0, layout:'text', nav:''
+              }, q))
+  };
+}
+
+function buildSlides(d){
+  const S = [];
+
+  S.push({
+    type:'title', nav:'표지', theme:'dawn',
+    eyebrow: inline(d.cover.eyebrow),
+    en: [esc(d.cover.titleEn[0]), esc(d.cover.titleEn[1])],
+    ground:'grass', props:PROPS_TITLE, walker:true
+  });
+
+  if(arr(d.greeting.lines).length) S.push({
+    type:'message', nav:'인사말', theme:'dawn',
+    krTitle:esc(d.greeting.title), lines:d.greeting.lines.map(l => inline(l)),
+    ground:'grass', props:PROPS_GREET, walker:true
+  });
+
+  if(arr(d.rules.items).length) S.push({
+    type:'rules', nav:'게임 규칙', theme:'dawn',
+    krTitle:esc(d.rules.title), rules:d.rules.items.map(r => inline(r, 'em')),
+    ground:'grass', props:PROPS_RULES, walker:true
+  });
+
+  if(arr(d.start.lines).length) S.push({
+    type:'start', nav:'게임 시작', theme:'dawn',
+    krTitle:esc(d.start.title), lines:d.start.lines.map(l => inline(l)),
+    ground:'grass', props:PROPS_START, walker:true
+  });
+
+  d.quiz.forEach((q, i) => {
+    const no    = i + 1;
+    const set   = stageOfWorld(worldOf(no));
+    const label = q.nav || stripTags(q.question).replace(/\s+/g, ' ').trim().slice(0, 9);
+    const opts  = arr(q.options);
+    const byNum = q.layout === 'numbers';   // 실물·사진을 보여주고 번호로 고르는 문제
+
+    S.push(Object.assign({
+      type:'quiz', no, nav:'Q' + no + ' ' + label,
+      question: inline(q.question), note: esc(q.note),
+      options: byNum ? null
+             : opts.filter(o => String(o).trim() !== '').map(esc),
+      qSize:   q.qSize   || autoQSize(q.question),
+      optSize: q.optSize || autoOptSize(opts),
+      walker:true
+    }, set));
+
+    if(byNum) S.push(Object.assign({
+      type:'choices', no, nav:'Q' + no + ' 보기',
+      labels: (opts.length ? opts : ['','','','','']).map(esc),
+      walker:true
+    }, set));
+
+    const ai = Math.max(0, Math.min(opts.length - 1, q.answerIndex | 0));
+    const at = opts[ai];
+    S.push(Object.assign({
+      type:'answer', no, nav:'Q' + no + ' 정답',
+      answerNo:   CIRCLED[ai] || String(ai + 1),
+      answerText: byNum ? '' : esc(at),
+      blank:      byNum || !String(at || '').trim()
+    }, set));
+  });
+
+  S.push({
+    type:'clear', nav:'클리어', theme:'castle', ground:'stone',
+    props:PROPS_CLEAR,
+    hero:{style:'left:520px; bottom:150px; width:170px;', walk:false},
+    krTitle: esc(d.ending.title),
+    lines:   d.ending.lines.map(l => inline(l)),
+    showCoins: d.ending.showCoins
+  });
+
+  return S;
+}
+
+let D      = normalize(DATA);
+let SLIDES = buildSlides(D);
+let TOTAL  = SLIDES.length;
+
+/* ══════════════════════════════════════════════════════════
+   4. 렌더링
+   ══════════════════════════════════════════════════════════ */
+const $ = s => document.querySelector(s);
+const stage = $('#stage');
+const pad2 = n => String(n).padStart(2,'0');
+
+function propsHTML(list=[]){
+  return list.map(p => `<div class="px ${p.cls||''}" style="${p.style}">${ART[p.art]}</div>`).join('');
+}
+function cloudsHTML(theme){
+  if(theme === 'underground' || theme === 'castle') return '';
+  return `<div class="cloud cl-a">${ART.cloud}</div>
+          <div class="cloud cl-b">${ART.cloud}</div>
+          <div class="cloud cl-c">${ART.cloud}</div>`;
+}
+function groundHTML(kind){
+  if(kind === 'grass') return `<div class="ground g-grass"><div class="turf"></div><div class="soil"></div></div>`;
+  if(kind === 'cave')  return `<div class="ground g-cave"></div>`;
+  return `<div class="ground g-stone"></div>`;
+}
+const heroInner = () => `<div class="flip"><div class="jumper">
+    <div class="fr f1">${ART.baby1}</div>
+    <div class="fr f2">${ART.baby2}</div>
+    <div class="fr f3">${ART.baby3}</div>
+  </div></div>`;
+
+function heroHTML(h){
+  if(!h) return '';
+  return `<div class="hero ${h.walk ? 'walk' : ''}" style="${h.style}">${heroInner()}</div>`;
+}
+
+function contentHTML(s){
+  if(s.type === 'title'){
+    return `<div class="content">
+      <div class="eyebrow" data-anim style="--d:60">${s.eyebrow}</div>
+      <div class="title-en" data-anim style="--d:220; margin-top:56px">${s.en[0]}<br>${s.en[1]}</div>
+      <div data-anim style="--d:620; margin-top:52px"><button class="btn-start" tabindex="-1">START</button></div>
+    </div>`;
+  }
+
+  if(s.type === 'message' || s.type === 'start'){
+    const lines = s.lines.map((l,i) =>
+      `<div class="body-text" data-anim style="--d:${360 + i*140}">${l}</div>`).join('');
+    return `<div class="content">
+      <div class="title-kr" data-anim="drop" style="--d:40">${s.krTitle}</div>
+      <div style="margin-top:64px; display:flex; flex-direction:column; gap:12px">${lines}</div>
+      ${s.type === 'start'
+        ? `<div data-anim style="--d:${360 + s.lines.length*140 + 120}; margin-top:56px"><button class="btn-start" tabindex="-1">START</button></div>`
+        : ''}
+    </div>`;
+  }
+
+  if(s.type === 'rules'){
+    const rules = s.rules.map((r,i) => `
+      <div class="rule" data-anim="slideL" style="--d:${320 + i*170}">
+        <span class="num">${pad2(i+1)}</span><span class="txt">${r}</span>
+      </div>`).join('');
+    return `<div class="content">
+      <div class="title-kr" data-anim="drop" style="--d:40">${s.krTitle}</div>
+      <div class="rule-list" style="margin-top:56px">${rules}</div>
+    </div>`;
+  }
+
+  if(s.type === 'quiz'){
+    const opts = (s.options || []).map((o,i) => {
+      return `<div class="option" data-anim style="--d:${540 + i*120}; --opt:${s.optSize||54}px">
+                <span class="blk">${ART.qblock}</span>
+                <span class="no">${pad2(i+1)}</span>
+                <span>${o}</span>
+              </div>`;
+    }).join('');
+    return `<div class="content">
+      <div class="title-quiz" data-anim="drop" style="--d:40">QUIZ ${pad2(s.no)}</div>
+      <div data-anim style="--d:290; margin-top:52px">
+        <div class="q-text" style="font-size:${s.qSize||68}px">${s.question}</div>
+        ${s.note ? `<div class="q-note">${s.note}</div>` : ''}
+      </div>
+      ${opts ? `<div class="options" style="margin-top:64px">${opts}</div>` : ''}
+    </div>`;
+  }
+
+  if(s.type === 'choices'){
+    const slots = s.labels.map((t,i) => `
+      <div class="slot" data-anim style="--d:${240 + i*120}">
+        <span class="blk">${ART.qblock}</span>
+        <span class="no">${pad2(i+1)}</span>
+        <span class="label">${t}</span>
+      </div>`).join('');
+    return `<div class="content content--top">
+      <div class="title-quiz" data-anim="drop" style="--d:40">QUIZ ${pad2(s.no)}</div>
+      <div class="option-row">${slots}</div>
+    </div>`;
+  }
+
+  if(s.type === 'answer'){
+    return `<div class="content content--top">
+      <div class="title-quiz" data-anim="drop" style="--d:40">QUIZ ${pad2(s.no)}</div>
+      <div class="tease">정답은?</div>
+      <div class="answer-bubble ${s.blank ? 'answer-bubble--blank' : ''}">
+        <span class="no">${s.answerNo}</span><span>${s.answerText}</span>
+      </div>
+    </div>`;
+  }
+
+  if(s.type === 'clear'){
+    return `<div class="content content--top">
+      <div class="title-quiz" data-anim="drop" style="--d:40">${s.krTitle || 'COURSE CLEAR!'}</div>
+      <div class="body-text" data-anim style="--d:420; margin-top:44px; font-size:52px">
+        ${(s.lines || []).join('<br>')}
+      </div>
+      ${s.showCoins ? `<div class="body-text" data-anim style="--d:760; margin-top:26px; font-size:36px; opacity:.9">
+        획득한 코인 <span class="hl-gold" id="clear-coins">0</span>개
+      </div>` : ''}
+    </div>`;
+  }
+  return '';
+}
+
+/* 정답 슬라이드의 ?블록과 주인공은 별도로 배치합니다 */
+function answerStageHTML(){
+  // 블록 아랫면(y=590)과 주인공 머리(점프 정점 y=581)가 맞닿습니다.
+  return `
+    <div class="qbox" style="left:336px; bottom:490px; width:168px;">
+      <div class="face q">${ART.qblock}</div>
+      <div class="face used">${ART.qblockUsed}</div>
+    </div>
+    <div class="hero" style="left:326px; bottom:150px; width:150px;">${heroInner()}</div>`;
+}
+
+function mountSlides(){
+$('#slides').innerHTML = SLIDES.map(s => `
+  <section class="slide" data-type="${s.type}" data-theme="${s.theme}">
+    <div class="layer">${cloudsHTML(s.theme)}${propsHTML(s.props)}</div>
+    ${s.ceiling ? '<div class="ceiling c-cave"></div>' : ''}
+    ${groundHTML(s.ground)}
+    ${s.type === 'answer' ? answerStageHTML() : heroHTML(s.hero)}
+    ${contentHTML(s)}
+  </section>`).join('');
+
+slideEls = [...document.querySelectorAll('.slide')];
+
+$('#overview .grid').innerHTML = SLIDES.map((s,i) =>
+  `<button class="card" data-i="${i}"><span class="n">${pad2(i+1)}</span><span class="t">${s.nav}</span></button>`
+).join('');
+}
+let slideEls = [];
+
+/* ══════════════════════════════════════════════════════════
+   5. HUD
+   ══════════════════════════════════════════════════════════ */
+function mountHUD(){
+$('#hud').innerHTML = `
+  <div class="col"><span class="k">${esc(D.hud.name)}</span>
+    <span class="v lives">${`<span class="hd">${ART.heart}</span>`.repeat(D.hud.lives || 3)}</span></div>
+  <div class="col"><span class="k">SCORE</span><span class="v" id="hud-score">000000</span></div>
+  <div class="col"><span class="k">COIN</span>
+    <span class="v" id="hud-coin"><span class="coin-ico">${ART.coin}</span>×00</span></div>
+  <div class="col"><span class="k">WORLD</span><span class="v" id="hud-world">1-1</span></div>
+  <div class="col"><span class="k">TIME</span><span class="v" id="hud-time">3</span></div>`;
+}
+
+const solved = new Set();          // 정답을 공개한 문제 번호
+const scoreOf = () => solved.size * 1000;
+
+function updateHUD(blink){
+  const s = SLIDES[idx];
+  const coin = solved.size;
+  $('#hud-score').textContent = String(scoreOf()).padStart(6,'0');
+  $('#hud-coin').innerHTML = `<span class="coin-ico">${ART.coin}</span>×${pad2(coin)}`;
+  $('#hud-world').textContent = s.no ? stageTag(s.no) : (s.type === 'clear' ? 'END' : '1-1');
+  if(blink){
+    ['#hud-score','#hud-coin'].forEach(sel => {
+      const el = $(sel);
+      el.classList.remove('blink'); void el.offsetWidth; el.classList.add('blink');
+    });
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   5-2. 배경음악
+   ── 두 곡을 번갈아 이어서 재생합니다.
+   ── 브라우저가 자동재생을 막으므로 첫 조작 때 시작합니다.
+   ══════════════════════════════════════════════════════════ */
+const BGM_SRC = [/*__EMBED_AUDIO__*/];   /* 빌드 시 주입 (M1에서는 비어 있습니다) */
+
+let bgmEl = null, bgmIdx = 0, bgmOn = false, bgmVol = .30;
+
+function initBGM(){
+  if(!BGM_SRC.length) return;
+  bgmEl = new Audio();
+  bgmEl.volume = bgmVol;
+  bgmEl.addEventListener('ended', () => {          // 한 곡이 끝나면 다음 곡으로
+    bgmIdx = (bgmIdx + 1) % BGM_SRC.length;
+    bgmEl.src = BGM_SRC[bgmIdx];
+    bgmEl.play().catch(() => {});
+  });
+  bgmEl.src = BGM_SRC[0];
+}
+
+function startBGM(){                                // 첫 조작에서 한 번만
+  if(!bgmEl || bgmOn || muted) return;
+  bgmOn = true;
+  bgmEl.play().catch(() => { bgmOn = false; });
+}
+
+function setBgmVol(v){
+  bgmVol = Math.max(0, Math.min(1, v));
+  if(bgmEl) bgmEl.volume = muted ? 0 : bgmVol;
+  showVol();
+}
+
+let volT = null;
+function showVol(){
+  const el = $('#mute');
+  el.textContent = muted ? 'SOUND OFF' : `BGM ${Math.round(bgmVol * 100)}%`;
+  el.classList.add('show');
+  clearTimeout(volT);
+  if(!muted) volT = setTimeout(() => el.classList.remove('show'), 1600);
+}
+
+/* 정답 팡파레가 울릴 때는 배경음악을 잠깐 낮춥니다 */
+let duckT = null;
+function duck(ms = 2600){
+  if(!bgmEl || muted) return;
+  clearTimeout(duckT);
+  bgmEl.volume = bgmVol * .32;
+  duckT = setTimeout(() => { if(bgmEl && !muted) bgmEl.volume = bgmVol; }, ms);
+}
+
+function applyMute(){
+  if(!bgmEl) return;
+  if(muted){ bgmEl.pause(); }
+  else if(bgmOn){ bgmEl.volume = bgmVol; bgmEl.play().catch(() => {}); }
+}
+
+/* ══════════════════════════════════════════════════════════
+   6. 8비트 사운드 (오디오 파일 없이 생성)
+   ══════════════════════════════════════════════════════════ */
+let actx = null, muted = false;
+function audio(){
+  if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+  if(actx.state === 'suspended') actx.resume();
+  return actx;
+}
+function tone(f, start, dur, vol=.13, type='square', f2=null){
+  if(muted) return;
+  try{
+    const a = audio(), t = a.currentTime + start;
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    if(f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + .012);
+    g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t + dur + .02);
+  }catch(e){}
+}
+const SFX = {
+  move : () => tone(660, 0, .08, .08),
+  back : () => tone(392, 0, .08, .07),
+  jump : () => tone(320, 0, .3, .12, 'square', 900),
+  bump : () => { tone(160, 0, .1, .14, 'square', 90); },
+  coin : () => { tone(988,0,.06,.14); tone(1319,.06,.3,.12); },
+  power: () => { [523,659,784,1047,1319].forEach((f,i) => tone(f, i*.05, .16, .11)); },
+  clear: () => {
+    const m = [[523,0],[659,.13],[784,.26],[1047,.39],[784,.52],[1047,.65],[1319,.78]];
+    m.forEach(([f,t]) => tone(f, t, .3, .12));
+    tone(1568, .95, .8, .1);
+  },
+  start: () => { [523,659,784,1047].forEach((f,i) => tone(f, i*.08, .18, .11)); },
+  tick : () => tone(880, 0, .1, .12),
+  warn : () => { [0,.12,.24].forEach(t => tone(1400, t, .07, .1)); },
+  buzz : () => { tone(180,0,.2,.13,'sawtooth'); tone(140,.12,.3,.11,'sawtooth'); },
+  world: () => { [392,523,659].forEach((f,i) => tone(f, i*.1, .24, .1)); }
+};
+
+/* ══════════════════════════════════════════════════════════
+   7. 파티클
+   ══════════════════════════════════════════════════════════ */
+const CONF = ['#F6CE3C','#E8503C','#5CCB4E','#4FD6C8','#E8508F','#FFFFFF'];
+const reduced = () => window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+function confetti(n=80){
+  if(reduced()) return;
+  for(let i=0;i<n;i++){
+    const d = document.createElement('div');
+    d.className = 'confetti';
+    const size = 14 + Math.random()*18;
+    d.style.cssText = `width:${size}px;height:${size}px;background:${CONF[i%CONF.length]};left:${Math.random()*1920}px;top:-40px;`;
+    stage.appendChild(d);
+    d.animate([
+      {transform:'translate(0,0) rotate(0deg)', opacity:1},
+      {transform:`translate(${(Math.random()-.5)*420}px, 1220px) rotate(${(Math.random()-.5)*1080}deg)`, opacity:.9}
+    ], {duration:2200 + Math.random()*1800, easing:'cubic-bezier(.3,.6,.6,1)'}).onfinish = () => d.remove();
+  }
+}
+
+/* ══════════════════════════════════════════════════════════
+   8. 배경에서 계속 돌아가는 작은 게임
+   ── 문제를 읽는 동안 화면이 멈춰 있으면 아이들이 금방 지루해합니다.
+   ── 주인공이 천천히 돌아다니다 ?블록을 치고, 방해꾼을 밟습니다.
+   ── 소리는 내지 않습니다. 진행에 방해가 되면 안 되니까요.
+   ══════════════════════════════════════════════════════════ */
+const AMB = {actors:[], boxes:[], coins:[], raf:null, last:0, lastScene:-1};
+
+const rnd  = (a,b) => a + Math.random() * (b - a);
+const rint = (a,b) => Math.floor(rnd(a, b + 1));
+const coin = arr => arr[rint(0, arr.length - 1)];
+
+/* ── 무대 구성 5종 ──────────────────────────────
+   블록은 본문 글자를 피해 좌우 가장자리(x<240 / x>1680)에만 놓습니다.
+   높이(b)는 무대마다 달라서 주인공의 점프 높이도 함께 달라집니다.  */
+const SCENES = [
+  { id:'낮은 두 칸',
+    boxes:[{x:110,b:520},{x:1706,b:520}], foes:1, speed:74, coins:0 },
+
+  { id:'높은 두 칸',
+    boxes:[{x:76,b:648},{x:1740,b:648}],  foes:1, speed:66, coins:2 },
+
+  { id:'계단',
+    boxes:[{x:40,b:452},{x:186,b:606},{x:1720,b:530}], foes:2, speed:82, coins:0 },
+
+  { id:'외길',
+    boxes:[{x:140,b:566}], foes:2, speed:90, coins:3 },
+
+  { id:'넓은 무대',
+    boxes:[{x:30,b:486},{x:1800,b:632}],  foes:3, speed:60, coins:2 }
+];
+
+function pickScene(){
+  let i;
+  do { i = rint(0, SCENES.length - 1); } while(SCENES.length > 1 && i === AMB.lastScene);
+  AMB.lastScene = i;
+  return SCENES[i];
+}
+
+function stopAmbient(){
+  if(AMB.raf) cancelAnimationFrame(AMB.raf);
+  AMB.raf = null; AMB.actors = []; AMB.boxes = []; AMB.coins = [];
+}
+
+/* 블록에서 코인이 솟구칩니다 */
+function popCoinAt(boxEl, parent){
+  const r = boxEl.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  const k = sr.width / 1920;
+  const c = document.createElement('div');
+  c.className = 'pop-coin';
+  c.style.left = ((r.left - sr.left)/k + (r.width/k)/2 - 37) + 'px';
+  c.style.top  = ((r.top  - sr.top )/k - 46) + 'px';
+  c.innerHTML = ART.coin;
+  parent.appendChild(c);
+  setTimeout(() => c.remove(), 900);
+}
+
+function makeFoe(el, x, dir){
+  const f = document.createElement('div');
+  f.className = 'foe';
+  f.style.cssText = `bottom:150px; width:104px; left:${x}px;`;
+  f.innerHTML = `<div class="flip">
+    <div class="fr g1">${ART.foe1}</div>
+    <div class="fr g2">${ART.foe2}</div>
+    <div class="fr gflat">${ART.foeFlat}</div>
+  </div>`;
+  el.appendChild(f);
+  return {el:f, flip:f.querySelector('.flip'), x, w:104,
+          vx:rnd(36,58) * dir, type:'foe', dead:false};
+}
+
+function squash(a){
+  a.dead = true;
+  a.el.classList.add('squash');
+  setTimeout(() => {                       // 잠시 뒤 반대편에서 다시 걸어옵니다
+    if(!AMB.actors.includes(a)) return;
+    a.el.classList.remove('squash');
+    const fromRight = Math.random() < .5;
+    a.x  = fromRight ? 1790 : 30;
+    a.vx = rnd(36,58) * (fromRight ? -1 : 1);
+    a.el.style.left = a.x + 'px';
+    a.dead = false;
+  }, rnd(3200, 5600));
+}
+
+function heroHop(hero, box){
+  hero.jumping = true;
+  hero.el.classList.remove('walk');
+  // 노릴 블록 높이에 맞춰 점프 높이를 정합니다 (머리가 블록 아랫면에 닿게)
+  hero.el.style.setProperty('--hop', (box ? -(box.bottom - 318) : -196) + 'px');
+  hero.el.classList.add('hop');
+
+  setTimeout(() => {                        // 점프 정점에서 블록을 칩니다
+    if(!box || !AMB.boxes.includes(box)) return;
+    box.el.classList.remove('bump'); void box.el.offsetWidth; box.el.classList.add('bump');
+    box.el.classList.add('opened');
+    box.opened = true; box.timer = rnd(7, 12);
+    popCoinAt(box.el, box.el.parentElement);
+  }, 380);
+
+  setTimeout(() => {
+    hero.el.classList.remove('hop');
+    if(hero.mode === 'walk') hero.el.classList.add('walk');
+    hero.jumping = false;
+    hero.cd = rnd(1.6, 3.2);
+  }, 860);
+}
+
+function addFlutter(el, theme){
+  if(theme === 'underground'){
+    for(let i=0;i<3;i++){
+      const d = document.createElement('div');
+      d.className = 'firefly';
+      d.style.cssText = `left:${rnd(40,320)}px; top:${rnd(250,560)}px;
+        animation-delay:${-rnd(0,19)}s, ${-rnd(0,2.4)}s;`;
+      el.appendChild(d);
+    }
+  }else if(theme !== 'castle'){
+    for(let i=0, n=rint(1,2); i<n; i++){
+      const b = document.createElement('div');
+      b.className = 'flutter';
+      b.style.cssText = `left:-60px; top:${rnd(196,340)}px; width:${rnd(58,84)}px;
+        animation-delay:${-rnd(0,26)}s; animation-duration:${rnd(22,32)}s;`;
+      b.innerHTML = `<span class="body">${ART.butterfly}</span>`;
+      el.appendChild(b);
+    }
+  }
+}
+
+/* 지나가다 주워 먹는 코인 */
+function makeCoin(el, x){
+  const c = document.createElement('div');
+  c.className = 'amb-coin';
+  c.style.cssText = `left:${x}px; bottom:${rnd(190,260)}px; width:64px;`;
+  c.innerHTML = `<span class="spin">${ART.coin}</span>`;
+  el.appendChild(c);
+  return {el:c, cx:x + 32, taken:false, timer:0};
+}
+
+function setupAmbient(el, s){
+  stopAmbient();
+  if(reduced()) return;
+
+  addFlutter(el, s.theme);
+  if(!s.walker) return;
+
+  const sc = pickScene();
+
+  AMB.boxes = sc.boxes.map(p => {
+    const b = document.createElement('div');
+    b.className = 'bbox';
+    b.style.cssText = `left:${p.x}px; bottom:${p.b}px; width:104px;`;
+    b.innerHTML = `<div class="face q">${ART.qblock}</div><div class="face used">${ART.qblockUsed}</div>`;
+    el.appendChild(b);
+    return {el:b, cx:p.x + 52, bottom:p.b, opened:false, timer:0};
+  });
+
+  for(let i=0;i<sc.coins;i++) AMB.coins.push(makeCoin(el, rnd(420,1420)));
+
+  // 주인공은 매번 다른 자리에서 다른 방향으로 출발합니다
+  const startX = rnd(260, 1500);
+  const dir    = Math.random() < .5 ? 1 : -1;
+  const h = document.createElement('div');
+  h.className = 'hero walk amb-hero';
+  h.style.cssText = `bottom:150px; width:122px; left:${startX}px;`;
+  h.innerHTML = heroInner();
+  el.appendChild(h);
+  AMB.actors.push({
+    el:h, flip:h.querySelector('.flip'),
+    x:startX, w:122, vx:sc.speed * dir, base:sc.speed,
+    type:'hero', jumping:false, cd:rnd(.6,2.4),
+    mode:'walk', modeT:rnd(5,11)
+  });
+
+  for(let i=0;i<sc.foes;i++){
+    const fromRight = Math.random() < .6;
+    AMB.actors.push(makeFoe(el, fromRight ? rnd(1100,1800) : rnd(120,700), fromRight ? -1 : 1));
+  }
+
+  AMB.last = performance.now();
+  AMB.raf = requestAnimationFrame(ambTick);
+}
+
+function ambTick(ts){
+  const dt = Math.min(60, ts - AMB.last) / 1000;
+  AMB.last = ts;
+
+  for(const b of AMB.boxes){                // 친 블록은 잠시 뒤 되살아납니다
+    if(!b.opened) continue;
+    b.timer -= dt;
+    if(b.timer <= 0){ b.opened = false; b.el.classList.remove('opened'); }
+  }
+  for(const c of AMB.coins){                // 주워 먹은 코인도 다시 나타납니다
+    if(!c.taken) continue;
+    c.timer -= dt;
+    if(c.timer <= 0){ c.taken = false; c.el.classList.remove('taken'); }
+  }
+
+  let hero = null;
+  for(const a of AMB.actors){
+    if(a.type === 'hero') hero = a;
+    if(a.dead) continue;
+    if(!(a.type === 'hero' && a.mode === 'idle' && !a.jumping)) a.x += a.vx * dt;
+    const maxX = 1920 - a.w - 16;
+    if(a.x < 16){   a.x = 16;   a.vx =  Math.abs(a.vx); }
+    if(a.x > maxX){ a.x = maxX; a.vx = -Math.abs(a.vx); }
+    a.el.style.left = a.x + 'px';
+    a.flip.style.transform = `scaleX(${a.vx > 0 ? 1 : -1})`;
+  }
+
+  if(hero){
+    const hc = hero.x + hero.w/2;
+
+    // 걷다가 이따금 멈춰 서서 두리번거립니다
+    hero.modeT -= dt;
+    if(hero.modeT <= 0 && !hero.jumping){
+      if(hero.mode === 'walk'){
+        hero.mode = 'idle';  hero.modeT = rnd(1.4, 2.8);
+        hero.el.classList.remove('walk');
+      }else{
+        hero.mode = 'walk';  hero.modeT = rnd(6, 13);
+        hero.el.classList.add('walk');
+        if(Math.random() < .4) hero.vx = -hero.vx;   // 가끔 방향도 바꿉니다
+      }
+    }
+
+    for(const c of AMB.coins){              // 코인을 지나가면 주워 먹습니다
+      if(c.taken) continue;
+      if(Math.abs(hc - c.cx) < 56){
+        c.taken = true; c.timer = rnd(6, 10);
+        c.el.classList.add('taken');
+      }
+    }
+
+    if(!hero.jumping){
+      hero.cd -= dt;
+      if(hero.cd <= 0){
+        let hopped = false;
+        for(const b of AMB.boxes){          // 블록 앞에 서면 쳐서 코인을 꺼냅니다
+          if(!b.opened && Math.abs(hc - b.cx) < 34){ heroHop(hero, b); hopped = true; break; }
+        }
+        if(!hopped) for(const a of AMB.actors){   // 방해꾼을 만나면 뛰어올라 밟습니다
+          if(a.type !== 'foe' || a.dead) continue;
+          if(Math.abs(hc - (a.x + a.w/2)) < 96){ heroHop(hero, null); hopped = true; break; }
+        }
+        if(!hopped && hero.mode === 'walk' && Math.random() < .006){
+          heroHop(hero, null);              // 아무것도 없어도 가끔 신나서 뜁니다
+        }
+      }
+    }else{
+      for(const a of AMB.actors){           // 점프 중에 방해꾼을 밟습니다
+        if(a.type !== 'foe' || a.dead) continue;
+        if(Math.abs(hc - (a.x + a.w/2)) < 64) squash(a);
+      }
+    }
+  }
+
+  AMB.raf = requestAnimationFrame(ambTick);
+}
+
+/* ══════════════════════════════════════════════════════════
+   9. 진행
+   ══════════════════════════════════════════════════════════ */
+let idx = 0, step = 0, locked = false;
+const maxStep = s => (s.type === 'answer' ? 1 : 0);
+
+function render(){
+  slideEls.forEach(el => el.classList.remove('is-active'));
+
+  // 등장 애니메이션을 매번 다시 재생하기 위해 노드를 통째로 교체
+  const fresh = slideEls[idx].cloneNode(true);
+  // 지난번 방문에서 배경 액터가 붙어 있었다면 복제본에도 딸려옵니다. 지우고 새로 만듭니다.
+  fresh.querySelectorAll('.amb-hero,.foe,.bbox,.flutter,.firefly,.pop-coin,.pop-score')
+       .forEach(n => n.remove());
+  slideEls[idx].replaceWith(fresh);
+  slideEls[idx] = fresh;
+  fresh.classList.add('is-active');
+
+  step = 0;
+  const s = SLIDES[idx];
+
+  $('#progress .bar').style.width = ((idx+1) / TOTAL * 100) + '%';
+  $('#pagenum').textContent = `${pad2(idx+1)} / ${TOTAL}`;
+  document.querySelectorAll('#overview .card').forEach((c,i) => c.classList.toggle('now', i === idx));
+  $('#hud-time').textContent = '3';
+  updateHUD(false);
+
+  // 이미 공개했던 정답이면 공개 상태로 되돌립니다 (뒤로 갔다 와도 유지)
+  if(s.type === 'answer' && solved.has(s.no)){
+    fresh.classList.add('revealed');
+    fresh.querySelector('.qbox')?.classList.add('opened');
+    step = 1;
+  }
+
+  if(s.type === 'clear'){
+    const el = fresh.querySelector('#clear-coins');
+    if(el) el.textContent = solved.size;
+    setTimeout(() => { SFX.clear(); duck(4200); }, 420);
+    setTimeout(() => confetti(140), 700);
+  }
+  else if(s.type === 'title' || s.type === 'start') setTimeout(SFX.start, 200);
+  else if(s.type === 'quiz' || s.type === 'choices') setTimeout(SFX.coin, 280);
+
+  setupAmbient(fresh, s);
+}
+
+/* ── 정답 공개: 주인공이 ?블록을 칩니다 ── */
+function reveal(){
+  const el = slideEls[idx];
+  const s  = SLIDES[idx];
+  const hero = el.querySelector('.hero');
+  const box  = el.querySelector('.qbox');
+  if(!hero || !box) return;
+
+  hero.classList.add('jump');
+  SFX.jump();
+
+  // 점프 정점에서 블록을 때립니다
+  setTimeout(() => {
+    box.classList.add('bump');
+    SFX.bump();
+
+    // 코인이 솟아오릅니다
+    popCoinAt(box, el);
+
+    const r = box.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const k = sr.width / 1920;
+    const sc = document.createElement('div');
+    sc.className = 'pop-score';
+    sc.textContent = '+1000';
+    sc.style.left = ((r.left - sr.left)/k + 4) + 'px';
+    sc.style.top  = ((r.top  - sr.top )/k - 76) + 'px';
+    el.appendChild(sc);
+    setTimeout(() => sc.remove(), 1100);
+
+    SFX.coin();
+    box.classList.add('opened');
+  }, 290);
+
+  // 정답 공개
+  setTimeout(() => {
+    hero.classList.remove('jump');
+    el.classList.add('revealed');
+    solved.add(s.no);
+    updateHUD(true);
+    SFX.power();
+    duck();                 // 팡파레가 묻히지 않게 배경음악을 잠깐 낮춥니다
+    confetti(90);
+  }, 760);
+}
+
+function advance(){
+  const s = SLIDES[idx];
+  if(step < maxStep(s)){
+    step++;
+    if(s.type === 'answer') reveal();
+    return;
+  }
+  SFX.move();
+  go(idx + 1);
+}
+
+function go(n){
+  if(locked) return;
+  const target = Math.max(0, Math.min(TOTAL-1, n));
+  if(target === idx) return;
+  locked = true;
+  hideTimer();
+
+  const prevWorld = SLIDES[idx].no ? worldOf(SLIDES[idx].no) : 0;
+  const nextWorld = SLIDES[target].no ? worldOf(SLIDES[target].no) : 0;
+  const enteringNewWorld = nextWorld && nextWorld !== prevWorld && target > idx;
+
+  const sl = $('#slides');
+  sl.classList.remove('iris-open'); sl.classList.add('iris');
+
+  setTimeout(() => {
+    idx = target;
+    render();
+    sl.classList.remove('iris'); sl.classList.add('iris-open');
+  }, 270);
+
+  if(enteringNewWorld){
+    setTimeout(() => showWorldCard(SLIDES[target].no), 300);
+    setTimeout(() => { locked = false; }, 2400);
+  }else{
+    setTimeout(() => { locked = false; }, 620);
+  }
+}
+const prev = () => { SFX.back(); go(idx - 1); };
+
+/* ── 월드 인터미션 ── */
+function showWorldCard(no){
+  const card = $('#world-card');
+  card.querySelector('.wtitle').textContent = `WORLD ${stageTag(no)}`;
+  card.querySelector('.wsub').textContent = worldOf(no) % 2 === 1 ? '지상 스테이지' : '지하 스테이지';
+  card.querySelector('.ico').innerHTML = ART.baby1;
+  card.classList.add('show');
+  SFX.world();
+  setTimeout(() => card.classList.remove('show'), 1700);
+}
+
+/* ── 3초 타이머 ── */
+let timerId = null;
+function hideTimer(){
+  clearTimeout(timerId);
+  $('#timer').classList.remove('show');
+  $('#timer .num').classList.remove('small');
+  $('#hud-time').textContent = '3';
+}
+function runTimer(){
+  clearTimeout(timerId);
+  const box = $('#timer'), num = box.querySelector('.num');
+  let n = 3;
+  box.classList.add('show');
+  num.classList.remove('small');
+  const stepFn = () => {
+    num.textContent = n;
+    $('#hud-time').textContent = n;
+    num.style.animation = 'none'; void num.offsetWidth; num.style.animation = '';
+    (n === 1 ? SFX.warn : SFX.tick)();
+    n--;
+    if(n >= 1) timerId = setTimeout(stepFn, 1000);
+    else timerId = setTimeout(() => {
+      num.textContent = 'TIME!';
+      num.classList.add('small');
+      $('#hud-time').textContent = '0';
+      SFX.buzz();
+      timerId = setTimeout(hideTimer, 1100);
+    }, 1000);
+  };
+  stepFn();
+}
+
+/* ── 목차 ── */
+const ov = $('#overview');
+function toggleOverview(force){
+  ov.classList.toggle('show', force !== undefined ? force : !ov.classList.contains('show'));
+}
+ov.addEventListener('click', e => {
+  const card = e.target.closest('.card');
+  toggleOverview(false);
+  if(card){ SFX.coin(); go(+card.dataset.i); }
+});
+
+/* ══════════════════════════════════════════════════════════
+   9. 조작
+   ══════════════════════════════════════════════════════════ */
+const NEXT_KEYS = ['ArrowRight','ArrowDown','PageDown',' ','Enter','Spacebar'];
+const PREV_KEYS = ['ArrowLeft','ArrowUp','PageUp','Backspace'];
+
+document.addEventListener('keydown', e => {
+  startBGM();
+  if(e.key === 'Escape'){ toggleOverview(false); hideTimer(); return; }
+  if(ov.classList.contains('show') && !/^o$/i.test(e.key)) return;
+
+  if(NEXT_KEYS.includes(e.key)){ e.preventDefault(); advance(); return; }
+  if(PREV_KEYS.includes(e.key)){ e.preventDefault(); prev();    return; }
+
+  switch(e.key.toLowerCase()){
+    case 'home': go(0); break;
+    case 'end':  go(TOTAL-1); break;
+    case 'f':    toggleFull(); break;
+    case 'o':    toggleOverview(); break;
+    case 'm':    muted = !muted; applyMute(); showVol(); break;
+    case '[':    setBgmVol(bgmVol - .05); break;
+    case ']':    setBgmVol(bgmVol + .05); break;
+    case 't':    if(SLIDES[idx].type === 'quiz' || SLIDES[idx].type === 'choices') runTimer(); break;
+    case 'h':
+    case '?':    flashHelp(6000); break;
+  }
+});
+
+stage.addEventListener('click', e => {
+  startBGM();
+  if(ov.classList.contains('show')) return;
+  const r = stage.getBoundingClientRect();
+  ((e.clientX - r.left) < r.width * 0.22) ? prev() : advance();
+});
+
+let tx = 0;
+stage.addEventListener('touchstart', e => { startBGM(); tx = e.changedTouches[0].clientX; }, {passive:true});
+stage.addEventListener('touchend', e => {
+  if(ov.classList.contains('show')) return;
+  const d = e.changedTouches[0].clientX - tx;
+  if(Math.abs(d) > 60) (d < 0 ? advance() : prev());
+}, {passive:true});
+
+function toggleFull(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+}
+
+const helpEl = $('#help');
+helpEl.innerHTML = `<kbd>→</kbd> 다음·정답공개 · <kbd>←</kbd> 이전 · <kbd>F</kbd> 전체화면 · <kbd>T</kbd> 3초 · <kbd>O</kbd> 목차 · <kbd>M</kbd> 음소거 · <kbd>[ ]</kbd> 음량`;
+let helpTid;
+function flashHelp(ms=4000){
+  helpEl.classList.add('show');
+  clearTimeout(helpTid);
+  helpTid = setTimeout(() => helpEl.classList.remove('show'), ms);
+}
+document.addEventListener('mousemove', () => flashHelp(2600));
+
+/* ══════════════════════════════════════════════════════════
+   10. 화면 맞춤
+   ══════════════════════════════════════════════════════════ */
+const safeEl = $('#safe');
+function fit(){
+  const r = safeEl.getBoundingClientRect();
+  const vv = window.visualViewport;
+  const w = Math.min(r.width,  vv ? vv.width  : Infinity);
+  const h = Math.min(r.height, vv ? vv.height : Infinity);
+  stage.style.transform = `translate(-50%,-50%) scale(${Math.min(w/1920, h/1080)})`;
+}
+window.addEventListener('resize', fit);
+window.visualViewport?.addEventListener('resize', fit);
+window.addEventListener('orientationchange', () => { fit(); setTimeout(fit, 320); });
+
+/* ══════════════════════════════════════════════════════════
+   11. 편집기 연동
+   ── 편집기(부모 창)가 postMessage로 데이터를 보내면
+   ── 슬라이드를 다시 만들어 그 자리에서 갱신합니다.
+   ══════════════════════════════════════════════════════════ */
+const clampIdx = i => Math.max(0, Math.min(TOTAL - 1, i | 0));
+
+window.applyData = function(next){
+  const keep = idx;
+  D      = normalize(next);
+  SLIDES = buildSlides(D);
+  TOTAL  = SLIDES.length;
+  mountSlides();
+  mountHUD();
+  idx = clampIdx(keep);
+  render();
+  notify();
+};
+
+/* 특정 슬라이드로 즉시 이동 (전환 연출 없이 — 편집 중 미리보기용) */
+window.gotoSlide = function(i){
+  idx = clampIdx(i);
+  render();
+  notify();
+};
+
+/* 문제 번호로 이동 — 편집기에서 Q3을 고치면 미리보기도 Q3으로 갑니다 */
+window.gotoQuestion = function(no, kind){
+  const want = kind || 'quiz';
+  const i = SLIDES.findIndex(s => s.no === no && s.type === want);
+  if(i >= 0) window.gotoSlide(i);
+};
+
+function notify(){
+  if(window.parent === window) return;
+  window.parent.postMessage({
+    type:'studio:state',
+    index: idx,
+    total: TOTAL,
+    outline: SLIDES.map(s => ({type:s.type, no:s.no || null, nav:s.nav}))
+  }, '*');
+}
+
+window.addEventListener('message', e => {
+  const m = e.data;
+  if(!m || typeof m !== 'object') return;
+  if(m.type === 'studio:data')     window.applyData(m.data);
+  if(m.type === 'studio:goto')     window.gotoSlide(m.index);
+  if(m.type === 'studio:question') window.gotoQuestion(m.no, m.kind);
+});
+
+mountSlides();
+mountHUD();
+fit();
+initBGM();
+render();
+notify();
+if(window.parent === window) flashHelp(6500);
+</script>
+</body>
+</html>

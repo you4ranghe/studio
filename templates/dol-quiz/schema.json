@@ -134,6 +134,7 @@
           "min": 1, "max": 20, "recommended": 10,
           "addLabel": "문제 추가",
           "collapsible": true,
+          "suggest": { "nameFrom": "hud.name", "blankLabel": "직접 쓰기" },
           "fields": [
             {
               "path": "question",

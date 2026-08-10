@@ -106,6 +106,7 @@ function markupHelp(){
 function ctx(){
   return {
     store,
+    prompts: tpl.prompts,
     onEdit(path){
       push();
       refreshProgress();

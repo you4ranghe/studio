@@ -29,7 +29,9 @@ export async function loadTemplate(dir){
     grab(dir + '/schema.json', 'json'),
     grab(dir + '/sample.json', 'json')
   ]);
-  return { dir, meta, schema, sample };
+  /* 문제 제안은 있는 템플릿만 씁니다. 없으면 그냥 넘어갑니다. */
+  const prompts = await grab(dir + '/prompts.json', 'json').catch(() => null);
+  return { dir, meta, schema, sample, prompts };
 }
 
 /* 폰트는 한 번만 받아서 재사용합니다 (1.7MB) */

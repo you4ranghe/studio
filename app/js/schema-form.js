@@ -21,6 +21,22 @@ const icon = (name, cls = 'ico') => `<svg class="${cls}" aria-hidden="true"><use
 const opened = new Set();
 export const openCard = key => opened.add(key);
 
+/* ── 이름 넣기 ──
+   한국어 이름 뒤의 '이'는 받침이 있을 때만 붙습니다. 하윤이 / 지호
+   부를 때도 갈립니다. 하윤아 / 지호야
+   이걸 안 하면 제안 문구가 "지호이가"처럼 어색해집니다. */
+const batchim = ch => {
+  const c = String(ch || '').charCodeAt(0);
+  return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 !== 0;
+};
+export function fillName(text, name){
+  const n = String(name || '').trim() || '아이';
+  const b = batchim(n[n.length - 1]);
+  return String(text || '')
+    .replace(/\{아이야\}/g, n + (b ? '아' : '야'))
+    .replace(/\{아이\}/g,   n + (b ? '이' : ''));
+}
+
 /* ctx = { store, onEdit, onFocus, onCard, rerender } */
 export function renderFields(host, fields, ctx, basePath = ''){
   host.innerHTML = '';
@@ -218,19 +234,32 @@ function repeater(f, ctx, path){
       cards ? card(f, ctx, path, i, items.length, draw)
             : row(f, ctx, path, i, items.length, draw)));
 
-    const add = el('button', 'rep__add', '＋ ' + esc(f.addLabel || '추가'));
-    add.type = 'button';
-    add.disabled = f.max != null && items.length >= f.max;
-    add.addEventListener('click', () => {
+    const push = seed => {
       const next = ctx.store.read(path);
-      next.push(blank());
+      next.push(seed ?? blank());
       ctx.store.write(path, next);
       if(cards) opened.add(path + '.' + (next.length - 1));
       ctx.onEdit?.(path);
       draw();
-      const last = list.querySelector('.qc:nth-last-of-type(1)');
-      last?.querySelector('textarea,input')?.focus();
+      const last = list.querySelector('.qc:last-of-type');
+      last?.querySelector('textarea,input')?.focus({ preventScroll:true });
+      last?.scrollIntoView({ block:'nearest' });
+    };
+
+    const add = el('button', 'rep__add', '＋ ' + esc(f.addLabel || '추가'));
+    add.type = 'button';
+    add.disabled = f.max != null && items.length >= f.max;
+
+    /* 제안 목록이 있으면 빈 카드 대신 목록부터 엽니다.
+       "뭘 물어보지?"에서 막히는 게 이 화면의 가장 큰 이탈 지점입니다. */
+    const useBank = cards && f.suggest && ctx.prompts?.items?.length;
+    add.addEventListener('click', () => {
+      if(!useBank) return push();
+      if(list.querySelector('.pick')) return;
+      list.insertBefore(bank(f, ctx, path, push, () => draw()), add);
+      list.querySelector('.pick')?.scrollIntoView({ block:'nearest' });
     });
+
     list.appendChild(add);
   };
 
@@ -238,6 +267,81 @@ function repeater(f, ctx, path){
   wrap.__redraw = draw;
   if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
   return wrap;
+}
+
+/* ── 문제 제안 ──
+   고르면 문제와 보기 틀까지 채워집니다. 사용자는 숫자만 바꾸면 됩니다.
+   이미 쓴 문제는 흐리게 표시해 중복을 막습니다. */
+function bank(f, ctx, path, push, close){
+  const src   = ctx.prompts;
+  const name  = ctx.store.read(f.suggest.nameFrom);
+  const used  = new Set((ctx.store.read(path) || []).map(q => q && q.srcId).filter(Boolean));
+  const cats  = [{ id:'all', label:'전체' }, ...src.categories];
+  let cur = 'all';
+
+  const p = el('div', 'pick');
+
+  const head = el('div', 'pick__h');
+  head.innerHTML = '<b>어떤 걸 물어볼까요?</b><span>고르면 보기까지 채워집니다</span>';
+  const x = el('button', 'rep__x', icon('x'));
+  x.type = 'button'; x.title = '닫기'; x.style.opacity = '1';
+  x.addEventListener('click', close);
+  head.appendChild(x);
+
+  const chips = el('div', 'pick__c');
+  const listEl = el('div', 'pick__l');
+
+  const drawList = () => {
+    listEl.innerHTML = '';
+    src.items
+      .filter(it => cur === 'all' || it.cat === cur)
+      .forEach(it => {
+        const done = used.has(it.id);
+        const b = el('button', 'pick__i');
+        b.type = 'button';
+        b.disabled = done;
+        const q = fillName(it.q, name).replace(/\n/g, ' ');
+        b.innerHTML =
+          `<span class="pick__q"></span>
+           <span class="pick__o"></span>` +
+          (done ? '<span class="pick__u">넣음</span>' : '');
+        b.querySelector('.pick__q').textContent = q;
+        b.querySelector('.pick__o').textContent =
+          it.options.filter(o => o).join(' · ') || '보기를 직접 채웁니다';
+        b.addEventListener('click', () => push({
+          question: fillName(it.q, name),
+          options: [...it.options],
+          answerIndex: 0,
+          layout: 'text',
+          note: '',
+          nav: it.nav || '',
+          srcId: it.id
+        }));
+        listEl.appendChild(b);
+      });
+  };
+
+  cats.forEach(c => {
+    const b = el('button', 'pick__t', esc(c.label));
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(c.id === cur));
+    b.addEventListener('click', () => {
+      cur = c.id;
+      [...chips.children].forEach(n => n.setAttribute('aria-pressed', String(n === b)));
+      drawList();
+    });
+    chips.appendChild(b);
+  });
+
+  const foot = el('div', 'pick__f');
+  const own = el('button', 'rep__add', esc(f.suggest.blankLabel || '직접 쓰기'));
+  own.type = 'button';
+  own.addEventListener('click', () => push());
+  foot.appendChild(own);
+
+  drawList();
+  p.append(head, chips, listEl, foot);
+  return p;
 }
 
 /* 한 줄짜리 항목 */

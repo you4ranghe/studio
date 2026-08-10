@@ -436,7 +436,10 @@ html[data-theme="dark"] .seg button[aria-pressed="true"]{ background:var(--line-
 .qc__p > div{ overflow:hidden; }
 .qc__b{ padding:4px 14px 14px; border-top:1px solid var(--line); margin-top:0; }
 .qc__b .f:last-of-type{ margin-bottom:6px; }
-.qc__tools{ display:flex; gap:2px; margin-left:2px; }
+.qc__tools{
+  display:flex; justify-content:flex-end; gap:2px;
+  margin-top:12px; padding-top:8px; border-top:1px solid var(--line);
+}
 
 /* ── 정답 — 결과물에서 정답은 ?블록에서 나옵니다 ──
    금색은 이 화면에서 여기에만 씁니다. */
@@ -460,6 +463,65 @@ html[data-theme="dark"] .seg button[aria-pressed="true"]{ background:var(--line-
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
 .ans__b[aria-pressed="true"] .ans__t{ color:var(--text); font-weight:600; }
+
+/* ══ 문제 제안 ══════════════════════════════════════════
+   "뭘 물어보지?"에서 막혀 나가는 걸 막는 장치입니다.
+   문제 추가를 누르면 빈 카드 대신 이 목록이 먼저 열립니다.
+   ═══════════════════════════════════════════════════════ */
+.pick{
+  border:1px solid var(--accent); border-radius:var(--r);
+  background:var(--surface); box-shadow:var(--sh-2);
+  margin-bottom:8px; overflow:hidden;
+}
+.pick__h{
+  display:flex; align-items:baseline; gap:8px;
+  padding:12px 12px 10px;
+}
+.pick__h b{ font-size:14px; font-weight:700; letter-spacing:-.02em; }
+.pick__h span{ font-size:12.5px; color:var(--text-3); }
+.pick__h .rep__x{ margin-left:auto; align-self:center; }
+
+.pick__c{
+  display:flex; gap:5px; flex-wrap:wrap;
+  padding:0 12px 11px;
+}
+.pick__t{
+  height:27px; padding:0 11px; border-radius:var(--r-pill);
+  border:1px solid var(--line-2); background:transparent;
+  color:var(--text-3); font-size:12.5px; font-weight:600;
+  transition:background .13s, color .13s, border-color .13s;
+}
+.pick__t:hover{ color:var(--text); border-color:var(--text-3); }
+.pick__t[aria-pressed="true"]{
+  background:var(--accent); border-color:transparent; color:var(--accent-fg);
+}
+
+.pick__l{
+  max-height:340px; overflow-y:auto;
+  border-top:1px solid var(--line);
+  padding:6px; display:grid; gap:2px;
+}
+.pick__i{
+  display:grid; grid-template-columns:1fr auto; gap:2px 10px;
+  width:100%; padding:9px 10px;
+  border:0; border-radius:var(--r-sm); background:transparent;
+  text-align:left; color:var(--text);
+  transition:background .12s;
+}
+.pick__i:hover{ background:var(--accent-sf); }
+.pick__q{ font-size:13.5px; font-weight:600; line-height:1.45; }
+.pick__o{
+  grid-column:1; font-size:12px; color:var(--text-3);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.pick__u{
+  grid-column:2; grid-row:1 / span 2; align-self:center;
+  font-size:11.5px; font-weight:600; color:var(--text-3);
+  background:var(--surface-2); border-radius:var(--r-pill); padding:2px 8px;
+}
+.pick__i[disabled]{ opacity:.45; pointer-events:none; }
+
+.pick__f{ padding:9px 12px 12px; border-top:1px solid var(--line); }
 
 /* ── 표기 안내 ── */
 .mk{

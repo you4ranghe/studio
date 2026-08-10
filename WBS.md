@@ -211,6 +211,11 @@ Vercel을 쓰는 실질적 이유는 하나입니다. **비공개 저장소도 �
   (`dev.js`도 같은 이유로 302를 보냅니다. 두 환경을 똑같이 맞춰 뒀습니다.)
 - 폰트(woff2)만 1년 캐시합니다. 2MB이고 바뀌지 않습니다.
 
+> ⚠️ **`vercel.json`에는 주석용 키를 넣지 마세요.** Vercel이 스키마를 엄격하게 검사해서
+> 모르는 키가 있으면 배포가 통째로 막힙니다
+> (`Invalid request: should NOT have additional property '_'`).
+> 설명은 이 문서에 씁니다. 반대로 `templates/*.json`은 우리 코드만 읽으므로 `_` 키를 써도 됩니다.
+
 ### ⚠️ 감수하는 것 — 돈 받기 전에 반드시 바꿔야 합니다
 
 정적 배포는 **`templates/dol-quiz/renderer.html` 소스를 그대로 공개합니다.**

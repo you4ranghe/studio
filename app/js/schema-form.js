@@ -15,8 +15,13 @@ const el = (tag, cls, html) => {
 };
 const esc = v => String(v ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const icon = (name, cls = 'ico') => `<svg class="${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
-/* ctx = { store, onEdit(path), onFocus(path), rerenderStep() } */
+/* 카드를 다시 그려도 펼침 상태가 유지되도록 밖에 둡니다 */
+const opened = new Set();
+export const openCard = key => opened.add(key);
+
+/* ctx = { store, onEdit, onFocus, onCard, rerender } */
 export function renderFields(host, fields, ctx, basePath = ''){
   host.innerHTML = '';
   for(const f of fields) host.appendChild(field(f, ctx, basePath));
@@ -33,48 +38,42 @@ function field(f, ctx, basePath){
   }
 }
 
-/* ── 라벨 ── */
-function labelRow(f, forId){
-  const wrap = el('label', null);
-  if(forId) wrap.setAttribute('for', forId);
-  wrap.innerHTML = esc(f.label)
-    + (f.required ? '<span class="req">*</span>' : '')
-    + (f.optional ? '<span class="opt">선택</span>' : '');
-  return wrap;
+function label(f, forId){
+  const n = el('label', 'f__l');
+  if(forId) n.setAttribute('for', forId);
+  n.innerHTML = esc(f.label)
+    + (f.required ? '<span class="f__req">*</span>' : '')
+    + (f.optional ? '<span class="f__opt">선택</span>' : '');
+  return n;
 }
 
-function counter(f, input){
-  if(!f.maxLength) return null;
-  const c = el('span', 'count pix');
+function counter(f, input, lab){
+  if(!f.maxLength) return;
+  const c = el('span', 'f__c px');
+  lab.appendChild(c);
   const upd = () => {
     const n = [...String(input.value || '')].length;
     c.textContent = n + '/' + f.maxLength;
-    const over = n > f.maxLength;
-    c.dataset.over = over ? '1' : '0';
-    input.classList.toggle('inp--over', over);
+    c.dataset.over = n > f.maxLength ? '1' : '0';
+    input.classList.toggle('in--over', n > f.maxLength);
   };
   input.addEventListener('input', upd);
   upd();
-  return { node:c, update:upd };
 }
 
 /* ── 글 ── */
 function textField(f, ctx, path){
-  const wrap = el('div', 'field');
+  const wrap = el('div', 'f');
   const id = 'f_' + path.replace(/\./g, '_');
-
-  const input = f.type === 'longtext'
-    ? el('textarea', 'inp')
-    : el('input', 'inp');
+  const input = el(f.type === 'longtext' ? 'textarea' : 'input', 'in');
   input.id = id;
   if(f.type !== 'longtext') input.type = 'text';
   if(f.rows) input.rows = f.rows;
   if(f.placeholder) input.placeholder = f.placeholder;
   input.value = ctx.store.read(path) ?? '';
 
-  const lab = labelRow(f, id);
-  const cnt = counter(f, input);
-  if(cnt) lab.appendChild(cnt.node);
+  const lab = label(f, id);
+  counter(f, input, lab);
 
   input.addEventListener('input', () => {
     ctx.store.write(path, input.value);
@@ -83,42 +82,68 @@ function textField(f, ctx, path){
   input.addEventListener('focus', () => ctx.onFocus?.(path));
 
   wrap.append(lab, input);
-  if(f.hint) wrap.appendChild(el('p', 'hint', esc(f.hint)));
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
   return wrap;
 }
 
 /* ── 고르기 ── */
 function select(f, ctx, path){
-  const wrap = el('div', 'field');
-  wrap.appendChild(labelRow(f));
-  const box = el('div', 'choices');
+  const wrap = el('div', 'f');
+  wrap.appendChild(label(f));
   const cur = ctx.store.read(path) ?? f.default;
   const name = 'r_' + path.replace(/\./g, '_');
 
+  /* 짧은 선택지는 한 줄짜리 세그먼트로. 설명은 고른 것만 아래에 보여줍니다 */
+  if(f.choices.length <= 4 && (f.compact || f.choices.every(c => !c.desc))){
+    const seg = el('div', 'seg');
+    const note = el('p', 'f__h');
+    const say = v => {
+      const c = f.choices.find(x => String(x.value) === String(v));
+      note.textContent = c?.desc || f.hint || '';
+    };
+    f.choices.forEach(c => {
+      const b = el('button', null, esc(c.label));
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(String(cur) === String(c.value)));
+      b.addEventListener('click', () => {
+        ctx.store.write(path, c.value);
+        say(c.value);
+        ctx.onEdit?.(path);
+        [...seg.children].forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+        if(f.affectsForm) ctx.rerender?.();   // 폼 구성이 바뀌는 선택일 때만
+      });
+      seg.appendChild(b);
+    });
+    say(cur);
+    wrap.append(seg, note);
+    return wrap;
+  }
+
+  const box = el('div', 'opts');
+
   for(const c of f.choices){
-    const lab = el('label', 'choice');
+    const lab = el('label', 'opt');
     const r = el('input');
     r.type = 'radio'; r.name = name;
     r.checked = String(cur) === String(c.value);
     r.addEventListener('change', () => {
       ctx.store.write(path, c.value);
       ctx.onEdit?.(path);
-      ctx.rerenderStep?.();          // 보기 방식이 바뀌면 폼 모양도 바뀝니다
+      ctx.rerender?.();          // 보기 방식이 바뀌면 폼 모양도 바뀝니다
     });
-    const txt = el('div', null,
-      `<b>${esc(c.label)}</b>` + (c.desc ? `<span>${esc(c.desc)}</span>` : ''));
-    lab.append(r, txt);
+    lab.append(r, el('div', null,
+      `<b>${esc(c.label)}</b>` + (c.desc ? `<span>${esc(c.desc)}</span>` : '')));
     box.appendChild(lab);
   }
   wrap.appendChild(box);
-  if(f.hint) wrap.appendChild(el('p', 'hint', esc(f.hint)));
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
   return wrap;
 }
 
 /* ── 켜고 끄기 ── */
 function toggle(f, ctx, path){
-  const wrap = el('div', 'field');
-  const lab = el('label', 'switch');
+  const wrap = el('div', 'f');
+  const lab = el('label', 'sw');
   const inp = el('input');
   inp.type = 'checkbox';
   inp.checked = ctx.store.read(path) ?? f.default ?? false;
@@ -126,21 +151,20 @@ function toggle(f, ctx, path){
     ctx.store.write(path, inp.checked);
     ctx.onEdit?.(path);
   });
-  lab.append(inp, el('span', 'track'), el('span', null, esc(f.label)));
+  lab.append(inp, el('span', 'sw__t'), el('span', null, esc(f.label)));
   wrap.appendChild(lab);
-  if(f.hint) wrap.appendChild(el('p', 'hint', esc(f.hint)));
   return wrap;
 }
 
-/* ── 정답 고르기 ──
-   보기 중에서만 고를 수 있습니다. 그래서 "보기에 없는 정답"이
-   구조적으로 만들어지지 않습니다. */
+/* ── 정답 ──
+   보기 중에서만 고를 수 있습니다.
+   그래서 "보기에 없는 정답"이 구조적으로 만들어지지 않습니다. */
 function answer(f, ctx, path, basePath){
-  const wrap = el('div', 'field');
-  wrap.appendChild(labelRow(f));
-  const box = el('div', 'answer');
+  const wrap = el('div', 'f');
+  wrap.appendChild(label(f));
+  const box = el('div', 'ans');
   wrap.appendChild(box);
-  if(f.hint) wrap.appendChild(el('p', 'hint', esc(f.hint)));
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
 
   const optPath = joinPath(basePath, f.source);
 
@@ -149,12 +173,12 @@ function answer(f, ctx, path, basePath){
     const cur  = ctx.store.read(path) ?? 0;
     box.innerHTML = '';
     opts.forEach((o, i) => {
-      const b = el('button', 'answer__b');
+      const b = el('button', 'ans__b');
       b.type = 'button';
       b.setAttribute('aria-pressed', String(i === cur));
       b.append(
-        el('span', 'answer__blk', CIRCLED[i] || String(i + 1)),
-        el('span', 'answer__t', esc(String(o).trim() || '—'))
+        el('span', 'ans__k', CIRCLED[i] || String(i + 1)),
+        el('span', 'ans__t', esc(String(o).trim() || '—'))
       );
       b.addEventListener('click', () => {
         ctx.store.write(path, i);
@@ -163,25 +187,26 @@ function answer(f, ctx, path, basePath){
       });
       box.appendChild(b);
     });
-    if(!opts.length) box.appendChild(el('p', 'hint', '보기를 먼저 채워주세요.'));
+    if(!opts.length) box.appendChild(el('p', 'f__h', '보기를 먼저 채워주세요.'));
   };
 
   draw();
-  wrap.__refresh = draw;      // 보기 글자가 바뀌면 다시 그립니다
+  wrap.__refresh = draw;
   return wrap;
 }
 
 /* ── 반복 ── */
 function repeater(f, ctx, path){
-  const wrap = el('div', 'field');
-  const isCards = Array.isArray(f.fields);
+  const wrap = el('div', 'f');
+  const cards = Array.isArray(f.fields);
+  if(!cards) wrap.appendChild(label(f));
 
-  if(!isCards) wrap.appendChild(labelRow(f));
-  const list = el('div', isCards ? 'rep rep--cards' : 'rep');
+  const list = el('div', cards ? '' : 'rep');
   wrap.appendChild(list);
 
-  const blank = () => isCards
-    ? Object.fromEntries(f.fields.map(x => [x.path, x.default ?? (x.type === 'repeater' ? ['', '', '', '', ''] : '')]))
+  const blank = () => cards
+    ? Object.fromEntries(f.fields.map(x =>
+        [x.path, x.default ?? (x.type === 'repeater' ? ['', '', '', '', ''] : '')]))
     : '';
 
   const draw = () => {
@@ -190,9 +215,8 @@ function repeater(f, ctx, path){
     list.innerHTML = '';
 
     items.forEach((_, i) => list.appendChild(
-      isCards ? card(f, ctx, path, i, items.length, draw)
-              : row(f, ctx, path, i, items.length, draw)
-    ));
+      cards ? card(f, ctx, path, i, items.length, draw)
+            : row(f, ctx, path, i, items.length, draw)));
 
     const add = el('button', 'rep__add', '＋ ' + esc(f.addLabel || '추가'));
     add.type = 'button';
@@ -201,37 +225,41 @@ function repeater(f, ctx, path){
       const next = ctx.store.read(path);
       next.push(blank());
       ctx.store.write(path, next);
+      if(cards) opened.add(path + '.' + (next.length - 1));
       ctx.onEdit?.(path);
       draw();
+      const last = list.querySelector('.qc:nth-last-of-type(1)');
+      last?.querySelector('textarea,input')?.focus();
     });
     list.appendChild(add);
   };
 
   draw();
-  if(f.hint) wrap.appendChild(el('p', 'hint', esc(f.hint)));
+  wrap.__redraw = draw;
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
   return wrap;
 }
 
-/* 한 줄짜리 반복 항목 */
+/* 한 줄짜리 항목 */
 function row(f, ctx, path, i, count, redraw){
-  const r = el('div', 'rep__row');
+  const r = el('div', 'rep__r');
   const itemPath = path + '.' + i;
 
-  r.appendChild(el('span', 'rep__n pix', f.numbered ? (CIRCLED[i] || i + 1) : String(i + 1)));
+  r.appendChild(el('span', 'rep__n px', f.numbered ? (CIRCLED[i] || i + 1) : String(i + 1)));
 
-  const inp = el('input', 'inp');
+  const inp = el('input', 'in');
   inp.type = 'text';
   inp.value = ctx.store.read(itemPath) ?? '';
-  if(f.maxLength) inp.setAttribute('aria-describedby', '');
+  if(f.maxLength) inp.maxLength = f.maxLength + 10;
   inp.addEventListener('input', () => {
     ctx.store.write(itemPath, inp.value);
     ctx.onEdit?.(itemPath);
-    refreshAnswers(r);
+    refreshCard(r);
   });
   inp.addEventListener('focus', () => ctx.onFocus?.(itemPath));
   r.appendChild(inp);
 
-  const x = el('button', 'rep__x', '✕');
+  const x = el('button', 'rep__x', icon('x'));
   x.type = 'button';
   x.title = '이 줄 지우기';
   x.disabled = count <= (f.min ?? 0);
@@ -246,47 +274,106 @@ function row(f, ctx, path, i, count, redraw){
   return r;
 }
 
-/* 여러 필드를 묶은 카드 (문제) */
+/* ── 문제 카드 (접힘) ── */
 function card(f, ctx, path, i, count, redraw){
   const itemPath = path + '.' + i;
-  const c = el('div', 'qcard');
-  c.dataset.index = i;
+  const isOpen = opened.has(itemPath);
 
-  const world = Math.floor(i / 5) + 1;
-  const top = el('div', 'qcard__top');
-  top.append(
-    el('span', 'qcard__no pix', (f.itemLabel || 'Q{n}').replace('{n}', i + 1)),
-    el('span', 'qcard__ttl', esc(preview(ctx, itemPath))),
-    el('span', 'qcard__world pix', `WORLD ${world}-${(i % 5) + 1}`)
+  const c = el('div', 'qc');
+  c.id = 'qc-' + i;
+
+  const head = el('button', 'qc__h');
+  head.type = 'button';
+  head.setAttribute('aria-expanded', String(isOpen));
+  head.append(
+    el('span', 'qc__n px', (f.itemLabel || 'Q{n}').replace('{n}', i + 1)),
+    el('span', 'qc__t'),
+    el('span', 'qc__a px'),
+    el('span', 'qc__w px', `${Math.floor(i / 5) + 1}-${(i % 5) + 1}`),
+    el('span', 'qc__cv', icon('chev', 'ico'))
   );
 
-  const x = el('button', 'rep__x', '✕');
-  x.type = 'button';
-  x.title = '이 문제 지우기';
-  x.disabled = count <= (f.min ?? 1);
-  x.addEventListener('click', () => {
+  const panel = el('div', 'qc__p');
+  panel.dataset.open = isOpen ? '1' : '0';
+  const inner = el('div');
+  const body = el('div', 'qc__b');
+  inner.appendChild(body);
+  panel.appendChild(inner);
+
+  const summarize = () => {
+    const q = String(ctx.store.read(itemPath + '.question') ?? '').replace(/\s+/g, ' ').trim();
+    const t = head.querySelector('.qc__t');
+    t.textContent = q || '문제를 입력해주세요';
+    t.dataset.empty = q ? '0' : '1';
+    const opts = ctx.store.read(itemPath + '.options') || [];
+    const ai = ctx.store.read(itemPath + '.answerIndex') ?? 0;
+    head.querySelector('.qc__a').textContent = opts.length ? (CIRCLED[ai] || '') : '';
+  };
+
+  let built = isOpen;
+  const build = () => {
+    const shown = f.fields.filter(sub => visible(sub, ctx, itemPath));
+    renderFields(body, shown, ctx, itemPath);
+    body.appendChild(tools(f, ctx, path, i, count, redraw));
+    built = true;
+  };
+  if(isOpen) build();
+
+  head.addEventListener('click', () => {
+    const now = panel.dataset.open === '1';
+    if(now){ opened.delete(itemPath); }
+    else{
+      opened.add(itemPath);
+      if(!built) build();
+      ctx.onCard?.(i + 1);
+    }
+    panel.dataset.open = now ? '0' : '1';
+    head.setAttribute('aria-expanded', String(!now));
+  });
+
+  c.append(head, panel);
+  c.addEventListener('focusin', () => ctx.onCard?.(i + 1));
+  body.addEventListener('input', summarize);
+  summarize();
+  c.__summarize = summarize;
+  return c;
+}
+
+/* 카드 하단 도구 — 순서 바꾸기와 지우기 */
+function tools(f, ctx, path, i, count, redraw){
+  const bar = el('div', 'qc__tools');
+  const move = (to) => {
     const arr = ctx.store.read(path);
-    arr.splice(i, 1);
+    const [it] = arr.splice(i, 1);
+    arr.splice(to, 0, it);
     ctx.store.write(path, arr);
+    opened.delete(path + '.' + i);
+    opened.add(path + '.' + to);
     ctx.onEdit?.(path);
     redraw();
-  });
-  top.appendChild(x);
+  };
 
-  const body = el('div', 'qcard__body');
-  const shown = f.fields.filter(sub => visible(sub, ctx, itemPath));
-  renderFields(body, shown, ctx, itemPath);
+  const mk = (ic, title, on, off) => {
+    const b = el('button', 'rep__x', icon(ic));
+    b.type = 'button'; b.title = title; b.disabled = off;
+    b.style.opacity = off ? '' : '1';
+    b.addEventListener('click', on);
+    return b;
+  };
 
-  c.append(top, body);
-  body.addEventListener('input', () => {
-    top.querySelector('.qcard__ttl').textContent = preview(ctx, itemPath);
-  });
-  c.addEventListener('focusin', () => {
-    document.querySelectorAll('.qcard--on').forEach(n => n.classList.remove('qcard--on'));
-    c.classList.add('qcard--on');
-    ctx.onCard?.(i + 1);
-  });
-  return c;
+  bar.append(
+    mk('up',   '위로',       () => move(i - 1), i === 0),
+    mk('down', '아래로',     () => move(i + 1), i === count - 1),
+    mk('x',    '이 문제 지우기', () => {
+      const arr = ctx.store.read(path);
+      arr.splice(i, 1);
+      ctx.store.write(path, arr);
+      opened.delete(path + '.' + i);
+      ctx.onEdit?.(path);
+      redraw();
+    }, count <= (f.min ?? 1))
+  );
+  return bar;
 }
 
 /* 보기 방식이 "번호만"이면 보기 글자칸은 숨깁니다 */
@@ -295,14 +382,10 @@ function visible(sub, ctx, itemPath){
   return (ctx.store.read(itemPath + '.layout') ?? 'text') !== 'numbers';
 }
 
-function preview(ctx, itemPath){
-  const q = String(ctx.store.read(itemPath + '.question') ?? '').replace(/\s+/g, ' ').trim();
-  return q || '문제를 입력해주세요';
-}
-
-/* 보기 글자가 바뀌면 같은 카드의 정답 블록 글자도 따라갑니다 */
-function refreshAnswers(node){
-  const card = node.closest('.qcard');
-  if(!card) return;
-  card.querySelectorAll('.field').forEach(f => f.__refresh?.());
+/* 보기 글자가 바뀌면 같은 카드의 정답 블록과 요약도 따라갑니다 */
+function refreshCard(node){
+  const c = node.closest('.qc');
+  if(!c) return;
+  c.querySelectorAll('.f').forEach(f => f.__refresh?.());
+  c.__summarize?.();
 }

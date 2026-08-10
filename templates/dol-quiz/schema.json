@@ -1,12 +1,15 @@
 {
-  "version": 1,
+  "version": 2,
   "_": "이 파일이 편집기 폼을 만듭니다. 폼 코드는 템플릿마다 새로 짜지 않습니다.",
+  "__sections": "각 구획은 결과물의 장면 하나와 짝입니다(slide). 그래서 왼쪽 목차가 곧 결과물 목차입니다.",
 
-  "steps": [
+  "sections": [
     {
-      "id": "basic",
-      "label": "기본 정보",
-      "desc": "표지와 화면 위쪽 상태바에 들어갑니다.",
+      "id": "cover",
+      "label": "표지",
+      "slide": "title",
+      "group": "인트로",
+      "desc": "맨 앞 장과 화면 위쪽 상태바입니다.",
       "fields": [
         {
           "path": "hud.name",
@@ -38,16 +41,29 @@
           "label": "표지 큰 글씨 2줄",
           "placeholder": "GAME",
           "maxLength": 8
+        },
+        {
+          "path": "hud.lives",
+          "type": "select",
+          "label": "상태바 하트 개수",
+          "default": 3,
+          "choices": [
+            { "value": 3, "label": "3개" },
+            { "value": 2, "label": "2개" },
+            { "value": 1, "label": "1개" }
+          ]
         }
       ]
     },
 
     {
-      "id": "intro",
-      "label": "인사말 · 규칙",
-      "desc": "퀴즈 시작 전에 보여줄 세 장입니다. 비워두면 그 장은 만들어지지 않습니다.",
+      "id": "greeting",
+      "label": "인사말",
+      "slide": "message",
+      "group": "인트로",
+      "desc": "하객에게 건네는 첫 인사입니다. 비우면 이 장은 만들어지지 않습니다.",
       "fields": [
-        { "path": "greeting.title", "type": "text", "label": "인사말 제목", "maxLength": 8 },
+        { "path": "greeting.title", "type": "text", "label": "제목", "maxLength": 8 },
         {
           "path": "greeting.lines",
           "type": "repeater",
@@ -57,23 +73,43 @@
           "addLabel": "줄 추가",
           "maxLength": 34,
           "markup": true
-        },
-        { "path": "rules.title", "type": "text", "label": "규칙 제목", "maxLength": 8 },
+        }
+      ]
+    },
+
+    {
+      "id": "rules",
+      "label": "게임 규칙",
+      "slide": "rules",
+      "group": "인트로",
+      "desc": "진행 방식을 하객에게 알려주는 장입니다.",
+      "fields": [
+        { "path": "rules.title", "type": "text", "label": "제목", "maxLength": 8 },
         {
           "path": "rules.items",
           "type": "repeater",
-          "label": "게임 규칙",
+          "label": "규칙",
           "of": "text",
           "min": 0, "max": 5,
           "addLabel": "규칙 추가",
           "maxLength": 30,
           "markup": true
-        },
-        { "path": "start.title", "type": "text", "label": "시작 화면 제목", "maxLength": 8 },
+        }
+      ]
+    },
+
+    {
+      "id": "start",
+      "label": "게임 시작",
+      "slide": "start",
+      "group": "인트로",
+      "desc": "퀴즈로 넘어가기 직전 장입니다.",
+      "fields": [
+        { "path": "start.title", "type": "text", "label": "제목", "maxLength": 8 },
         {
           "path": "start.lines",
           "type": "repeater",
-          "label": "시작 화면 문구",
+          "label": "문구",
           "of": "text",
           "min": 0, "max": 4,
           "addLabel": "줄 추가",
@@ -85,8 +121,10 @@
 
     {
       "id": "quiz",
-      "label": "퀴즈",
-      "desc": "5문제마다 배경이 지상 → 지하로 바뀝니다. 문제 수는 자유입니다.",
+      "label": "문제",
+      "slide": "quiz",
+      "group": "문제",
+      "desc": "5문제마다 배경이 지상에서 지하로 바뀝니다. 문제 수는 자유입니다.",
       "fields": [
         {
           "path": "quiz",
@@ -95,7 +133,7 @@
           "itemLabel": "Q{n}",
           "min": 1, "max": 20, "recommended": 10,
           "addLabel": "문제 추가",
-          "preview": { "kind": "question" },
+          "collapsible": true,
           "fields": [
             {
               "path": "question",
@@ -111,8 +149,10 @@
               "type": "select",
               "label": "보기 방식",
               "default": "text",
+              "compact": true,
+              "affectsForm": true,
               "choices": [
-                { "value": "text",    "label": "글자 보기",     "desc": "보기 5개를 문제와 같은 화면에 보여줍니다" },
+                { "value": "text",    "label": "글자 보기",     "desc": "보기를 문제와 같은 화면에 보여줍니다" },
                 { "value": "numbers", "label": "번호만 (실물)", "desc": "실물·사진을 앞에 두고 번호로 고릅니다. 보기 화면이 한 장 더 생깁니다" }
               ]
             },
@@ -158,7 +198,9 @@
     {
       "id": "ending",
       "label": "마무리",
-      "desc": "마지막 골인 화면입니다.",
+      "slide": "clear",
+      "group": "엔딩",
+      "desc": "골인 화면입니다.",
       "fields": [
         { "path": "ending.title", "type": "text", "label": "제목", "maxLength": 16, "hint": "영문 픽셀 글씨입니다." },
         {
@@ -176,17 +218,6 @@
           "type": "toggle",
           "label": "획득 코인 수 보여주기",
           "default": true
-        },
-        {
-          "path": "hud.lives",
-          "type": "select",
-          "label": "상태바 하트 개수",
-          "default": 3,
-          "choices": [
-            { "value": 1, "label": "1개" },
-            { "value": 2, "label": "2개" },
-            { "value": 3, "label": "3개" }
-          ]
         }
       ]
     }
@@ -194,7 +225,7 @@
 
   "markupHelp": [
     { "syntax": "엔터",    "result": "줄바꿈" },
-    { "syntax": "*글자*",   "result": "빨간 강조" },
-    { "syntax": "**글자**", "result": "금색 강조" }
+    { "syntax": "*글자*",   "result": "빨강" },
+    { "syntax": "**글자**", "result": "금색" }
   ]
 }

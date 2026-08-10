@@ -1,114 +1,170 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>스튜디오 — 파일로 소유하는 초대장</title>
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="돌잔치 퀴즈·초대장을 폼만 채워 HTML 파일 하나로 만듭니다. 와이파이 없이 열리고, 서비스가 문을 닫아도 남습니다.">
+<link rel="preload" as="font" type="font/woff2" href="./assets/fonts/PretendardVariable.woff2" crossorigin>
 <link rel="stylesheet" href="./css/app.css">
+<script>
+  (() => {
+    const s = localStorage.getItem('studio:theme');
+    const d = matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = s || (d ? 'dark' : 'light');
+  })();
+</script>
 <style>
-  body{ background:var(--paper); height:auto; }
-  .wrap{ max-width:1080px; margin:0 auto; padding:0 24px 80px; }
+  body{ height:auto; }
+  .wrap{ max-width:1120px; margin:0 auto; padding:0 28px; }
 
-  .nav{
-    display:flex; align-items:center; gap:10px;
-    height:60px; max-width:1080px; margin:0 auto; padding:0 24px;
-  }
-  .nav .mark{ display:flex; align-items:center; gap:9px; font-size:14px; font-weight:700; }
-  .nav .mark .chip{
-    width:22px; height:22px; border-radius:5px; background:var(--gold);
-    box-shadow:inset 0 -3px 0 rgba(0,0,0,.16), inset 0 0 0 2px rgba(0,0,0,.28);
-    display:grid; place-items:center; font-family:var(--font-pixel); font-size:12px; color:#4A2E00;
-  }
+  .nav{ display:flex; align-items:center; height:64px; gap:10px; }
+  .nav .brand{ font-size:15px; }
+  .nav .brand__m{ width:21px; height:21px; font-size:12px; }
+  .nav .sp{ flex:1; }
 
-  /* 히어로 — 설명 대신 결과물이 실제로 돌아갑니다 */
-  .hero{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:44px; align-items:center; padding:26px 0 56px; }
+  /* ── 히어로 ── 설명 대신 결과물이 실제로 돌아갑니다 ── */
+  .hero{
+    display:grid; grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);
+    gap:52px; align-items:center; padding:44px 0 64px;
+  }
+  .hero__k{
+    display:inline-flex; align-items:center; gap:7px;
+    font-family:var(--font-px); font-size:11px; letter-spacing:.04em;
+    color:var(--accent); background:var(--accent-sf);
+    padding:5px 10px; border-radius:var(--r-pill); margin-bottom:20px;
+  }
   .hero h1{
-    margin:0; font-size:44px; line-height:1.18; letter-spacing:-.035em;
+    margin:0; font-size:clamp(32px,4.4vw,52px); line-height:1.14;
+    letter-spacing:-.042em; font-weight:800;
   }
-  .hero h1 em{ font-style:normal; color:var(--brick); }
-  .hero p{ margin:18px 0 0; font-size:15px; color:var(--ink-2); max-width:40ch; line-height:1.7; }
-  .hero .kicker{
-    font-family:var(--font-pixel); font-size:11px; color:var(--gold-deep);
-    letter-spacing:.08em; margin-bottom:14px;
+  .hero h1 span{ color:var(--accent); }
+  .hero p{
+    margin:20px 0 0; font-size:16px; line-height:1.75;
+    color:var(--text-2); max-width:42ch;
   }
-  .hero .cta{ display:flex; gap:10px; margin-top:26px; }
-  .hero .btn{ height:42px; padding:0 20px; font-size:14px; }
+  .hero__cta{ display:flex; gap:10px; margin-top:30px; flex-wrap:wrap; }
+  .hero__cta .btn{ height:44px; padding:0 22px; font-size:14.5px; border-radius:var(--r); }
 
-  .demo{
-    aspect-ratio:16/9; border-radius:12px; overflow:hidden;
-    background:#000; box-shadow:var(--shadow-2); position:relative;
+  .demo{ position:relative; }
+  .demo::before{
+    content:''; position:absolute; z-index:0;
+    inset:-9% -7% auto; height:88%;
+    border-radius:50%; background:#5C94FC;
+    filter:blur(72px); opacity:.42;
   }
-  .demo iframe{ width:100%; height:100%; border:0; display:block; }
-  .demo__tag{
-    position:absolute; left:12px; bottom:12px;
-    font-family:var(--font-pixel); font-size:11px;
-    background:rgba(14,21,36,.82); color:#D9E2F0;
-    padding:5px 9px; border-radius:6px;
+  .demo__b{
+    position:relative; z-index:1;
+    aspect-ratio:16/9; border-radius:var(--r-lg); overflow:hidden;
+    background:#000; box-shadow:var(--sh-3);
+    outline:1px solid rgba(255,255,255,.08); outline-offset:-1px;
+  }
+  .demo__b iframe{ width:100%; height:100%; border:0; display:block; }
+  .demo__c{
+    position:relative; z-index:1;
+    margin:12px 2px 0; font-size:12.5px; color:var(--text-3);
+    display:flex; align-items:center; gap:7px;
+  }
+  .demo__c i{
+    width:6px; height:6px; border-radius:50%; background:var(--ok);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
   }
 
-  /* 결과물의 성격 — 이게 다른 서비스와 갈리는 지점입니다 */
-  .facts{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
-  .fact{ background:var(--surface); padding:20px 20px 22px; }
-  .fact b{ display:block; font-size:14px; margin-bottom:5px; }
-  .fact span{ font-size:13px; color:var(--muted); line-height:1.6; }
-  .fact .n{ font-family:var(--font-pixel); font-size:11px; color:var(--gold-deep); display:block; margin-bottom:10px; }
+  /* ── 결과물의 성격 ── 다른 서비스와 갈리는 지점입니다 ── */
+  .facts{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:30px;
+    padding:30px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  }
+  .fact .n{
+    font-family:var(--font-px); font-size:10.5px; color:var(--accent);
+    letter-spacing:.05em; display:block; margin-bottom:9px;
+  }
+  .fact b{ display:block; font-size:15px; font-weight:700; letter-spacing:-.02em; margin-bottom:5px; }
+  .fact span{ font-size:13.5px; color:var(--text-3); line-height:1.65; }
 
-  .sec{ margin-top:64px; }
-  .sec > h2{ margin:0 0 4px; font-size:20px; letter-spacing:-.02em; }
-  .sec > p{ margin:0 0 22px; color:var(--muted); font-size:13px; }
+  /* ── 템플릿 ── */
+  .sec{ padding:64px 0 0; }
+  .sec__t{ margin:0; font-size:22px; font-weight:700; letter-spacing:-.03em; }
+  .sec__d{ margin:7px 0 26px; font-size:14px; color:var(--text-3); }
 
-  .cards{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:16px; }
+  .cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:20px; }
   .card{
-    background:var(--surface); border:1px solid var(--line); border-radius:12px;
-    overflow:hidden; box-shadow:var(--shadow-1); display:flex; flex-direction:column;
+    border:1px solid var(--line); border-radius:var(--r-lg);
+    background:var(--surface); overflow:hidden;
+    display:flex; flex-direction:column;
+    transition:border-color .16s var(--ease), transform .16s var(--ease), box-shadow .16s var(--ease);
   }
-  .card__shot{ aspect-ratio:16/9; background:#0E1524; position:relative; overflow:hidden; }
-  .card__shot iframe{ width:200%; height:200%; border:0; transform:scale(.5); transform-origin:0 0; pointer-events:none; }
-  .card__b{ padding:16px 16px 18px; display:flex; flex-direction:column; flex:1; }
-  .card__cat{ font-family:var(--font-pixel); font-size:11px; color:var(--gold-deep); }
-  .card__b h3{ margin:6px 0 4px; font-size:16px; letter-spacing:-.01em; }
-  .card__b p{ margin:0 0 14px; font-size:13px; color:var(--muted); line-height:1.6; flex:1; }
-  .card__meta{ display:flex; gap:14px; font-size:12px; color:var(--muted); margin-bottom:14px; }
-  .card__meta b{ color:var(--ink-2); font-weight:600; }
-  .card__go{ display:flex; gap:8px; }
-  .card__go .btn{ flex:1; text-align:center; text-decoration:none; display:grid; place-items:center; }
+  .card:hover{ border-color:var(--line-2); transform:translateY(-2px); box-shadow:var(--sh-2); }
+  .card__s{ aspect-ratio:16/9; background:#000; overflow:hidden; position:relative; }
+  .card__s iframe{
+    width:200%; height:200%; border:0;
+    transform:scale(.5); transform-origin:0 0; pointer-events:none;
+  }
+  .card__b{ padding:18px 18px 20px; display:flex; flex-direction:column; flex:1; }
+  .card__c{ font-family:var(--font-px); font-size:10.5px; color:var(--accent); letter-spacing:.05em; }
+  .card__b h3{ margin:7px 0 5px; font-size:17px; font-weight:700; letter-spacing:-.022em; }
+  .card__b p{ margin:0 0 16px; font-size:13.5px; color:var(--text-3); line-height:1.6; flex:1; }
+  .card__m{
+    display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .card__m span{
+    font-size:12px; color:var(--text-2);
+    background:var(--surface-2); border-radius:var(--r-pill); padding:3px 10px;
+  }
+  .card__b .btn{ height:38px; text-decoration:none; }
 
-  .note{ margin-top:56px; font-size:12px; color:var(--muted); line-height:1.7; }
+  .foot{
+    margin-top:64px; padding:22px 0 56px; border-top:1px solid var(--line);
+    font-size:12.5px; color:var(--text-3); line-height:1.7;
+  }
 
-  @media (max-width:860px){
-    .hero{ grid-template-columns:1fr; gap:28px; padding-bottom:36px; }
-    .hero h1{ font-size:32px; }
-    .facts{ grid-template-columns:1fr; }
+  @media (max-width:900px){
+    .hero{ grid-template-columns:1fr; gap:34px; padding:28px 0 44px; }
+    .facts{ grid-template-columns:1fr; gap:22px; }
+    .wrap{ padding:0 18px; }
   }
 </style>
 </head>
 <body>
 
-<nav class="nav">
-  <span class="mark"><span class="chip">?</span> 스튜디오</span>
-</nav>
+<svg class="sr" aria-hidden="true">
+  <symbol id="i-sun" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linecap="round"><circle cx="8" cy="8" r="3.1"/><path d="M8 1v1.6M8 13.4V15M15 8h-1.6M2.6 8H1M12.9 3.1l-1.1 1.1M4.2 11.8l-1.1 1.1M12.9 12.9l-1.1-1.1M4.2 4.2 3.1 3.1"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"
+          stroke-linejoin="round"><path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1Z"/></symbol>
+</svg>
 
 <div class="wrap">
 
-  <section class="hero">
+  <nav class="nav">
+    <span class="brand"><span class="brand__m">?</span>스튜디오</span>
+    <span class="sp"></span>
+    <button class="btn btn--icon" id="theme" type="button" aria-label="화면 밝기 바꾸기">
+      <svg class="ico" id="themeIco"><use href="#i-moon"/></svg>
+    </button>
+  </nav>
+
+  <header class="hero">
     <div>
-      <div class="kicker">HTML 1개로 완성</div>
-      <h1>행사가 끝나도<br><em>파일은 남습니다.</em></h1>
+      <span class="hero__k">HTML 파일 1개</span>
+      <h1>행사가 끝나도<br><span>파일은 남습니다.</span></h1>
       <p>
-        돌잔치 퀴즈, 초대장, 행사 진행 화면을 폼만 채워서 만듭니다.
-        결과는 서버에 걸린 링크가 아니라 내 컴퓨터에 저장되는 HTML 파일 하나입니다.
-        와이파이 없이 열리고, 서비스가 문을 닫아도 그대로 남습니다.
+        돌잔치 퀴즈와 초대장을 폼만 채워서 만듭니다. 결과는 서버에 걸린 링크가 아니라
+        내 컴퓨터에 저장되는 HTML 파일 하나입니다. 와이파이 없이 열리고,
+        서비스가 문을 닫아도 그대로 남습니다.
       </p>
-      <div class="cta">
+      <div class="hero__cta">
         <a class="btn btn--primary" href="./editor.html?t=dol-quiz">샘플 고쳐보기</a>
         <button class="btn" id="openDemo" type="button">결과물 전체화면으로 보기</button>
       </div>
     </div>
+
     <div class="demo">
-      <iframe id="heroFrame" title="결과물 미리보기" src="../templates/dol-quiz/renderer.html"></iframe>
-      <span class="demo__tag">실제 결과물이 지금 돌아가고 있습니다</span>
+      <div class="demo__b"><iframe id="heroFrame" title="결과물 미리보기" src="../templates/dol-quiz/renderer.html"></iframe></div>
+      <p class="demo__c"><i></i>지금 보시는 건 이미지가 아니라 실제 결과물입니다</p>
     </div>
-  </section>
+  </header>
 
   <div class="facts">
     <div class="fact">
@@ -119,22 +175,22 @@
     <div class="fact">
       <span class="n">YOURS</span>
       <b>파일을 소유합니다</b>
-      <span>링크 만료도, 서비스 종료도 결과물에 영향을 주지 않습니다.</span>
+      <span>링크 만료도, 서비스 종료도 이미 받아둔 결과물에는 영향을 주지 않습니다.</span>
     </div>
     <div class="fact">
-      <span class="n">EDIT</span>
+      <span class="n">AGAIN</span>
       <b>언제든 다시 고칩니다</b>
       <span>입력한 내용이 남아 있어, 행사 전날까지 몇 번이든 다시 만듭니다.</span>
     </div>
   </div>
 
   <section class="sec">
-    <h2>템플릿</h2>
-    <p>고르면 샘플이 채워진 상태로 편집기가 열립니다. 백지부터 쓰지 않습니다.</p>
-    <div class="cards" id="cards">불러오는 중…</div>
+    <h2 class="sec__t">템플릿</h2>
+    <p class="sec__d">고르면 샘플이 채워진 상태로 편집기가 열립니다. 백지부터 쓰지 않습니다.</p>
+    <div class="cards" id="cards"></div>
   </section>
 
-  <p class="note">
+  <p class="foot">
     M1 시제품입니다. 결제·로그인·공유 링크는 아직 없고, 작업 내용은 이 브라우저에만 저장됩니다.
   </p>
 
@@ -143,42 +199,53 @@
 <script type="module">
 import { loadTemplate, buildSingleFile } from './js/build.js';
 
-const cards = document.getElementById('cards');
+/* 테마 */
+const ico = document.getElementById('themeIco');
+const paint = () => ico.innerHTML =
+  `<use href="#i-${document.documentElement.dataset.theme === 'dark' ? 'sun' : 'moon'}"/>`;
+paint();
+document.getElementById('theme').addEventListener('click', () => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  localStorage.setItem('studio:theme', next);
+  paint();
+});
 
+/* 템플릿 목록 */
 const list = await fetch('../templates/index.json').then(r => r.json());
 const tpls = await Promise.all(list.templates.map(id => loadTemplate('../templates/' + id)));
 
-cards.innerHTML = tpls.map(t => `
+document.getElementById('cards').innerHTML = tpls.map(t => `
   <article class="card">
-    <div class="card__shot"><iframe src="${t.dir}/renderer.html" title="${t.meta.name} 미리보기" tabindex="-1"></iframe></div>
+    <div class="card__s"><iframe src="${t.dir}/renderer.html" title="${t.meta.name} 미리보기" tabindex="-1"></iframe></div>
     <div class="card__b">
-      <span class="card__cat">${t.meta.category.toUpperCase()}</span>
+      <span class="card__c">${t.meta.category.toUpperCase()}</span>
       <h3>${t.meta.name}</h3>
       <p>${t.meta.tagline}</p>
-      <div class="card__meta">
-        <span>입력 <b>약 ${t.meta.estimatedMinutes}분</b></span>
-        <span>결과 <b>HTML 1개</b></span>
-        <span><b>${t.meta.output.offline ? '오프라인 재생' : '온라인'}</b></span>
+      <div class="card__m">
+        <span>입력 약 ${t.meta.estimatedMinutes}분</span>
+        <span>HTML 1개</span>
+        ${t.meta.output.offline ? '<span>오프라인 재생</span>' : ''}
       </div>
-      <div class="card__go">
-        <a class="btn btn--primary" href="./editor.html?t=${t.meta.id}">이 템플릿으로 만들기</a>
-      </div>
+      <a class="btn btn--primary" href="./editor.html?t=${t.meta.id}">이 템플릿으로 만들기</a>
     </div>
   </article>`).join('');
 
-/* 히어로의 결과물을 그대로 새 탭에 띄웁니다 — 샘플 데이터로 빌드한 진짜 파일입니다 */
+/* 미리보기에 샘플 데이터를 실어 보냅니다 */
+const frames = () => [...document.querySelectorAll('iframe')];
+const send = () => frames().forEach((f, i) =>
+  f.contentWindow?.postMessage({ type:'studio:data', data: tpls[Math.min(i, tpls.length - 1)].sample }, '*'));
+frames().forEach(f => f.addEventListener('load', send));
+send();
+setTimeout(send, 600);
+
+/* 히어로의 결과물을 그대로 새 탭에 — 샘플 데이터로 빌드한 진짜 파일입니다 */
 document.getElementById('openDemo').addEventListener('click', async () => {
   const blob = await buildSingleFile(tpls[0], tpls[0].sample);
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank', 'noopener');
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 });
-
-/* 히어로 미리보기에 샘플 데이터를 실어 보냅니다 */
-const hero = document.getElementById('heroFrame');
-const send = () => hero.contentWindow?.postMessage({ type:'studio:data', data: tpls[0].sample }, '*');
-hero.addEventListener('load', send);
-send();
 </script>
 
 </body>

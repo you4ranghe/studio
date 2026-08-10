@@ -39,7 +39,12 @@
   ],
 
   "audio": {
-    "enabled": false,
-    "note": "효과음은 WebAudio로 즉석 생성하므로 파일이 없습니다. 배경음악은 저작권이 정리된 음원을 확보한 뒤 켭니다."
+    "enabled": true,
+    "kind": "file",
+    "files": [
+      "Super Mario Bross - Theme Song.mp3",
+      "Super Mario Brothers Theme (piano cover).mp3"
+    ],
+    "note": "여기 적힌 순서대로 이어서 반복 재생합니다. 파일은 assets/audio/ 에 둡니다. files를 비우면 렌더러가 코드로 만든 8비트 배경음악으로 자동 전환되고 결과물 크기가 3MB 줄어듭니다. 효과음은 항상 WebAudio로 생성하므로 파일이 필요 없습니다."
   }
 }

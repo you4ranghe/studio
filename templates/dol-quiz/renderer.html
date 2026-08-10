@@ -1404,18 +1404,75 @@ function updateHUD(blink){
 
 /* ══════════════════════════════════════════════════════════
    5-2. 배경음악
-   ── 두 곡을 번갈아 이어서 재생합니다.
+   ── 효과음처럼 음악도 파일 없이 코드로 만듭니다.
+   ── 그래서 저작권이 깨끗하고 파일 크기가 1바이트도 안 늘어납니다.
+   ── 음원 파일을 넣고 싶으면 BGM_SRC에 주입하면 그쪽이 우선합니다.
    ── 브라우저가 자동재생을 막으므로 첫 조작 때 시작합니다.
    ══════════════════════════════════════════════════════════ */
-const BGM_SRC = [/*__EMBED_AUDIO__*/];   /* 빌드 시 주입 (M1에서는 비어 있습니다) */
+const BGM_SRC = [/*__EMBED_AUDIO__*/];   /* 빌드 시 주입. 비어 있으면 아래 합성 음악 */
 
 let bgmEl = null, bgmIdx = 0, bgmOn = false, bgmVol = .30;
 
+/* ── 코드로 만드는 8비트 배경음악 ──
+   128BPM, 8마디 한 바퀴(약 15초). 베이스 · 아르페지오 · 멜로디 세 성부입니다.
+   코드 진행 C - G - Am - F - F - G - C - C.
+   숫자는 MIDI 음높이, 0은 쉼표입니다. */
+const BGM_BPM  = 128;
+const BGM_CHORD = [                     // 마디별 코드 (근음, 3음, 5음)
+  [60,64,67], [55,59,62], [57,60,64], [53,57,60],
+  [53,57,60], [55,59,62], [60,64,67], [60,64,67]
+];
+const BGM_MEL = [                       // 마디당 8분음표 8개
+  [64, 0,67, 0,69, 0,67, 0],
+  [71, 0,74, 0,79, 0,74, 0],
+  [69, 0,72, 0,76, 0,72, 0],
+  [65, 0,69, 0,72, 0,69, 0],
+  [69, 0,72, 0,77, 0,76, 0],
+  [67, 0,71, 0,74, 0,79, 0],
+  [72, 0,76, 0,79, 0,76, 0],
+  [72, 0, 0, 0,67, 0,64, 0]
+];
+const BGM_ARP = [0,1,2,1,0,1,2,1];      // 아르페지오가 짚는 코드음 순서
+
+let bgmGain = null, bgmStep = 0, bgmNext = 0, bgmTimer = null;
+
+const hz = m => 440 * Math.pow(2, (m - 69) / 12);
+
+function bgmNote(midi, at, dur, vol, type){
+  if(!midi) return;
+  const a = audio();
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(hz(midi), at);
+  g.gain.setValueAtTime(0, at);
+  g.gain.linearRampToValueAtTime(vol, at + .01);
+  g.gain.exponentialRampToValueAtTime(.0001, at + dur);
+  o.connect(g); g.connect(bgmGain);
+  o.start(at); o.stop(at + dur + .02);
+}
+
+function bgmTick(){
+  const a = audio();
+  const spb = 60 / BGM_BPM / 2;                 // 8분음표 길이
+  while(bgmNext < a.currentTime + .25){
+    const bar = Math.floor(bgmStep / 8) % 8, i = bgmStep % 8;
+    const ch = BGM_CHORD[bar];
+
+    if(i % 2 === 0) bgmNote(ch[0] - 24, bgmNext, spb * .9, .11, 'triangle');
+    bgmNote(ch[BGM_ARP[i]] + 12, bgmNext, spb * .55, .035, 'square');
+    bgmNote(BGM_MEL[bar][i],     bgmNext, spb * 1.5, .07,  'square');
+
+    bgmNext += spb;
+    bgmStep = (bgmStep + 1) % 64;
+  }
+  bgmTimer = setTimeout(bgmTick, 60);
+}
+
 function initBGM(){
-  if(!BGM_SRC.length) return;
+  if(!BGM_SRC.length) return;                   // 음원 파일이 있으면 그쪽을 씁니다
   bgmEl = new Audio();
   bgmEl.volume = bgmVol;
-  bgmEl.addEventListener('ended', () => {          // 한 곡이 끝나면 다음 곡으로
+  bgmEl.addEventListener('ended', () => {       // 한 곡이 끝나면 다음 곡으로
     bgmIdx = (bgmIdx + 1) % BGM_SRC.length;
     bgmEl.src = BGM_SRC[bgmIdx];
     bgmEl.play().catch(() => {});
@@ -1423,15 +1480,36 @@ function initBGM(){
   bgmEl.src = BGM_SRC[0];
 }
 
-function startBGM(){                                // 첫 조작에서 한 번만
-  if(!bgmEl || bgmOn || muted) return;
+function startBGM(){                            // 첫 조작에서 한 번만
+  if(bgmOn || muted) return;
+  /* 편집기 미리보기(iframe) 안에서는 음악을 켜지 않습니다.
+     문구 하나 고칠 때마다 음악이 울리면 편집을 못 합니다.
+     "새 탭에서 열기"나 내려받은 파일에서는 정상적으로 나옵니다. */
+  if(window.parent !== window) return;
   bgmOn = true;
-  bgmEl.play().catch(() => { bgmOn = false; });
+  if(bgmEl){ bgmEl.play().catch(() => { bgmOn = false; }); return; }
+  try{
+    const a = audio();
+    bgmGain = a.createGain();
+    bgmGain.gain.value = bgmVol * .5;           // 사회자 목소리에 묻히지 않는 크기
+    bgmGain.connect(a.destination);
+    bgmStep = 0;
+    bgmNext = a.currentTime + .1;
+    bgmTick();
+  }catch(e){ bgmOn = false; }
+}
+
+function bgmSet(v, ms = .08){
+  if(!bgmGain) return;
+  const a = audio();
+  bgmGain.gain.cancelScheduledValues(a.currentTime);
+  bgmGain.gain.setTargetAtTime(v, a.currentTime, ms);
 }
 
 function setBgmVol(v){
   bgmVol = Math.max(0, Math.min(1, v));
   if(bgmEl) bgmEl.volume = muted ? 0 : bgmVol;
+  bgmSet(muted ? 0 : bgmVol * .5);
   showVol();
 }
 
@@ -1447,16 +1525,31 @@ function showVol(){
 /* 정답 팡파레가 울릴 때는 배경음악을 잠깐 낮춥니다 */
 let duckT = null;
 function duck(ms = 2600){
-  if(!bgmEl || muted) return;
+  if(muted) return;
   clearTimeout(duckT);
-  bgmEl.volume = bgmVol * .32;
-  duckT = setTimeout(() => { if(bgmEl && !muted) bgmEl.volume = bgmVol; }, ms);
+  if(bgmEl) bgmEl.volume = bgmVol * .32;
+  bgmSet(bgmVol * .5 * .32, .05);
+  duckT = setTimeout(() => {
+    if(muted) return;
+    if(bgmEl) bgmEl.volume = bgmVol;
+    bgmSet(bgmVol * .5, .25);
+  }, ms);
 }
 
 function applyMute(){
-  if(!bgmEl) return;
-  if(muted){ bgmEl.pause(); }
-  else if(bgmOn){ bgmEl.volume = bgmVol; bgmEl.play().catch(() => {}); }
+  if(bgmEl){
+    if(muted) bgmEl.pause();
+    else if(bgmOn){ bgmEl.volume = bgmVol; bgmEl.play().catch(() => {}); }
+    return;
+  }
+  if(muted){
+    bgmSet(0, .04);
+    clearTimeout(bgmTimer);
+  }else if(bgmOn){
+    bgmNext = audio().currentTime + .1;
+    bgmTick();
+    bgmSet(bgmVol * .5);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════

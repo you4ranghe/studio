@@ -3,10 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>채원이 첫 돌잔치 QUIZ GAME</title>
+<!-- 이름은 데이터에서 옵니다(아래 setTitle). 여기 적으면 남이 만든 파일에도 그 이름이 남습니다. -->
+<title>돌잔치 QUIZ GAME</title>
 
 <style>
-/*__EMBED_FONTS__*/
+/*__EMBED_FONTS__
+   ── 빌드할 때 이 주석부터 아래 닫는 표시까지가 base64로 심은 폰트로 통째로 바뀝니다.
+   ── 그 사이에 있는 규칙은 개발 서버 미리보기 전용입니다. 이게 없으면 편집기
+   ── 미리보기가 폰트 없이(serif로) 그려져서, 화면과 내려받은 파일이 달라집니다.
+   ── meta.json의 fonts와 family·weight를 맞춰 두세요. */
+@font-face{font-family:'PressStart2P';font-style:normal;font-weight:400;font-display:block;
+  src:url(assets/fonts/PressStart2P.woff2) format('woff2');}
+@font-face{font-family:'Galmuri11';font-style:normal;font-weight:400;font-display:block;
+  src:url(assets/fonts/Galmuri11.woff2) format('woff2');}
+@font-face{font-family:'PretendardXB';font-style:normal;font-weight:100 900;font-display:block;
+  src:url(assets/fonts/Pretendard-ExtraBold.woff2) format('woff2');}
+/*__/EMBED_FONTS__*/
 
 :root{
   /* ── 공통 팔레트 ─────────────────── */
@@ -928,7 +940,7 @@ const ART = {
     <g fill="#E8508F"><rect x="2" y="3" width="3" height="2"/><rect x="11" y="3" width="3" height="2"/></g>
     <g fill="#FFF3A8"><rect x="1" y="6" width="3" height="1"/><rect x="12" y="6" width="3" height="1"/></g>`),
 
-  /* ── 주인공: 배관공 복장을 한 아기 채원 ──
+  /* ── 주인공: 배관공 복장을 한 아기 ──
      빨간 모자 · 콧수염 · 빨간 상의 · 파란 멜빵바지 · 흰 장갑 · 갈색 신발 */
   baby1: S('0 0 16 22', `
     <g fill="#E8503C">
@@ -1303,9 +1315,19 @@ function buildSlides(d){
   return S;
 }
 
+/* 탭 제목 — 파일을 받아 열었을 때 창에 뜨는 이름입니다.
+   한국어 이름 뒤의 '이'는 받침이 있을 때만 붙습니다. 하람이 / 지호 */
+function setTitle(d){
+  const n = String(d.hud.name || '').trim();
+  const c = n.charCodeAt(n.length - 1);
+  const b = c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 !== 0;
+  document.title = n ? `${n}${b ? '이' : ''} 첫 돌잔치 QUIZ GAME` : '돌잔치 QUIZ GAME';
+}
+
 let D      = normalize(DATA);
 let SLIDES = buildSlides(D);
 let TOTAL  = SLIDES.length;
+setTitle(D);
 
 /* ══════════════════════════════════════════════════════════
    4. 렌더링
@@ -2252,6 +2274,7 @@ window.applyData = function(next){
   D      = normalize(next);
   SLIDES = buildSlides(D);
   TOTAL  = SLIDES.length;
+  setTitle(D);
   mountSlides();
   mountHUD();
   idx = clampIdx(keep);

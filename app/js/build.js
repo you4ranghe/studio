@@ -4,7 +4,12 @@
    ── M2에서 서버로 옮깁니다 (폰트 서브셋·소스 보호·공유 링크).
    ══════════════════════════════════════════════════════════ */
 
-const FONT_MARK  = '/*__EMBED_FONTS__*/';
+/* 폰트 자리는 한 줄이 아니라 구간입니다.
+   /*__EMBED_FONTS__ … /*__/EMBED_FONTS__*(/) 사이에는 개발 서버 미리보기용
+   @font-face가 들어 있습니다(파일 경로로 부릅니다). 빌드할 때 그 구간을
+   base64로 심은 폰트로 통째로 갈아 끼웁니다. 두 벌이 같이 남으면 결과물이
+   있지도 않은 파일을 부르게 됩니다. */
+const FONT_MARK  = /\/\*__EMBED_FONTS__[\s\S]*?\/\*__\/EMBED_FONTS__\*\//;
 const DATA_MARK  = '/*__DATA__*/ null';
 const AUDIO_MARK = '/*__EMBED_AUDIO__*/';
 
@@ -77,7 +82,7 @@ export async function buildSingleFile(tpl, data){
     audioSrc(tpl)
   ]);
 
-  if(!src.includes(FONT_MARK)) throw new Error('렌더러에 폰트 자리가 없습니다.');
+  if(!FONT_MARK.test(src)) throw new Error('렌더러에 폰트 자리가 없습니다.');
   if(!src.includes(DATA_MARK)) throw new Error('렌더러에 데이터 자리가 없습니다.');
   if(audio && !src.includes(AUDIO_MARK)) throw new Error('렌더러에 음악 자리가 없습니다.');
 

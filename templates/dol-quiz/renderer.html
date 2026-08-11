@@ -428,6 +428,55 @@ html,body{
 .option-row .no{font-family:var(--f-pixel); font-size:34px; color:#fff; text-shadow:3px 3px 0 var(--ink-2);}
 .option-row .label{font-weight:800; font-size:42px; color:var(--text); min-height:52px;}
 
+/* ── 사진 보기 ─────────────────────
+   보기마다 사진이 붙는 문제입니다. 글자는 사진 아래로 갑니다.
+   사진 한 변(--ph)은 보기 개수에 맞춰 계산해서 넣습니다 — 5개면 작게, 2개면 크게. */
+.options--img{ gap:24px; max-width:1720px; flex-wrap:nowrap; align-items:flex-start;}
+.options--img .option{
+  flex-direction:column; align-items:center; gap:12px;
+  width:calc(var(--ph,300px) + 28px);
+  padding:14px 14px 16px;
+  font-size:clamp(24px, calc(var(--ph,300px) * .135), 46px);
+}
+.options--img .opt-head{ display:flex; align-items:center; gap:10px;}
+.options--img .blk{ width:44px;}
+.options--img .no{ font-size:26px;}
+.opt-img{
+  display:block; width:var(--ph,300px); height:var(--ph,300px);
+  border:4px solid var(--panel-line); border-radius:12px;
+  overflow:hidden; background:rgba(0,0,0,.14);
+}
+.opt-img img{ display:block; width:100%; height:100%; object-fit:cover;}
+.opt-t{ line-height:1.2; word-break:keep-all;}
+
+/* 사진이 붙으면 위아래가 빠듯해집니다. 그 장만 여백을 줄입니다. */
+.content--photo{ padding:150px 100px 140px;}
+
+/* ── 문제 사진 ───────────────────── */
+.q-img{ display:block; margin:26px auto 0;}
+.q-img img{
+  display:block; max-height:var(--qih,380px); max-width:1180px;
+  border:6px solid var(--panel-line); border-radius:16px;
+  box-shadow:0 8px 0 rgba(0,0,0,.24);
+}
+
+/* ── 표지·마무리 사진 ───────────────── */
+/* 표지 사진이 붙으면 세로가 빠듯해집니다. 아래 여백을 줄이고 큰 글씨를 한 단계 낮춥니다.
+   위 여백은 200px 그대로 둡니다 — 더 줄이면 사진이 상태바를 덮습니다. */
+.content--haspic{ padding:196px 130px 150px;}
+.content--haspic .title-en{ font-size:88px;}
+.cover-img img{
+  display:block; height:190px; width:auto; max-width:760px; object-fit:cover;
+  border:8px solid var(--paper); border-radius:20px;
+  box-shadow:0 10px 0 rgba(0,0,0,.24);
+}
+.clear-img{ margin-top:28px;}
+.clear-img img{
+  display:block; height:250px; width:auto; max-width:900px; object-fit:cover;
+  border:8px solid var(--paper); border-radius:18px;
+  box-shadow:0 8px 0 rgba(0,0,0,.24);
+}
+
 /* ── 정답 말풍선 ───────────────────── */
 /* 주인공과 ?블록은 왼쪽, 정답 말풍선은 오른쪽에 놓아 서로 겹치지 않게 합니다 */
 .answer-bubble{
@@ -441,6 +490,11 @@ html,body{
   opacity:0;
 }
 .answer-bubble .no{font-family:var(--f-pixel); font-size:38px; color:var(--red);}
+.answer-bubble--img{top:288px; padding:26px 34px; gap:26px; font-size:52px;}
+.answer-bubble--img img{
+  display:block; width:300px; height:300px; object-fit:cover;
+  border:6px solid var(--ink); border-radius:16px;
+}
 .answer-bubble--blank{
   top:296px;
   width:940px; height:420px; padding:34px 40px;
@@ -1088,6 +1142,19 @@ const stageOfWorld = w => (w % 2 === 1)
 const esc = v => String(v == null ? '' : v)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+/* 사진은 data: URI로 심겨 들어옵니다(편집기의 imagestore.js → build.js).
+   src에 뭐든 들어갈 수 있는 자리라, 우리가 굽는 형식만 통과시킵니다.
+   그러면 이 값에 따옴표가 섞일 수 없어 속성 밖으로 새지 않습니다. */
+const imgSrc = v =>
+  /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(String(v || ''))
+    ? String(v) : '';
+
+/* 보기는 예전에 글자만이었습니다("아빠"). 사진이 붙으면서 {t,img}가 됐습니다.
+   먼저 만든 결과물과 sample.json이 아직 글자 배열이라 읽을 때 맞춰줍니다. */
+const optIn = o => (o && typeof o === 'object')
+  ? { t: String(o.t == null ? '' : o.t), img: imgSrc(o.img) }
+  : { t: String(o == null ? '' : o), img: '' };
+
 function inline(v, style){
   const o1 = style === 'em' ? '<em>' : '<span class="hl-red">';
   const c1 = style === 'em' ? '</em>' : '</span>';
@@ -1135,14 +1202,19 @@ function normalize(d){
   d = d || {};
   return {
     hud:      Object.assign({name:'', lives:3}, d.hud),
-    cover:    Object.assign({eyebrow:'', titleEn:['QUIZ','GAME']}, d.cover),
+    cover:    Object.assign({eyebrow:'', titleEn:['QUIZ','GAME'], image:''}, d.cover),
     greeting: Object.assign({title:'인사말',    lines:[]}, d.greeting),
     rules:    Object.assign({title:'게임 규칙', items:[]}, d.rules),
     start:    Object.assign({title:'게임 시작', lines:[]}, d.start),
-    ending:   Object.assign({title:'COURSE CLEAR!', lines:[], showCoins:true}, d.ending),
-    quiz:     arr(d.quiz).map(q => Object.assign({
-                question:'', note:'', options:[], answerIndex:0, layout:'text', nav:''
-              }, q))
+    ending:   Object.assign({title:'COURSE CLEAR!', lines:[], showCoins:true, image:''}, d.ending),
+    quiz:     arr(d.quiz).map(q => {
+                const o = Object.assign({
+                  question:'', note:'', options:[], answerIndex:0,
+                  layout:'text', nav:'', image:''
+                }, q);
+                o.options = arr(o.options).map(optIn);
+                return o;
+              })
   };
 }
 
@@ -1153,6 +1225,7 @@ function buildSlides(d){
     type:'title', nav:'표지', theme:'dawn',
     eyebrow: inline(d.cover.eyebrow),
     en: [esc(d.cover.titleEn[0]), esc(d.cover.titleEn[1])],
+    image: imgSrc(d.cover.image),
     ground:'grass', props:PROPS_TITLE, walker:true
   });
 
@@ -1180,30 +1253,40 @@ function buildSlides(d){
     const label = q.nav || stripTags(q.question).replace(/\s+/g, ' ').trim().slice(0, 9);
     const opts  = arr(q.options);
     const byNum = q.layout === 'numbers';   // 실물·사진을 보여주고 번호로 고르는 문제
+    const shown = opts.filter(o => o.t.trim() !== '' || o.img);
+    const photo = shown.some(o => o.img);   // 한 장이라도 붙어 있으면 사진 배치로 갑니다
 
     S.push(Object.assign({
       type:'quiz', no, nav:'Q' + no + ' ' + label,
       question: inline(q.question), note: esc(q.note),
-      options: byNum ? null
-             : opts.filter(o => String(o).trim() !== '').map(esc),
+      image:   imgSrc(q.image),
+      options: byNum ? null : shown.map(o => ({ text: esc(o.t), img: o.img })),
+      photo,
+      /* 사진 한 변 — 무대 안쪽 너비 1720px을 보기 개수로 나눕니다.
+         카드 좌우 여백 28px을 빼야 5개가 한 줄에 들어갑니다.
+         한 줄을 넘기면 세로가 모자라 글자가 상태바 위로 올라갑니다. */
+      ph: photo
+            ? Math.min(340, Math.floor((1720 - (shown.length - 1) * 24) / Math.max(1, shown.length)) - 28)
+            : 0,
       qSize:   q.qSize   || autoQSize(q.question),
-      optSize: q.optSize || autoOptSize(opts),
+      optSize: q.optSize || autoOptSize(opts.map(o => o.t)),
       walker:true
     }, set));
 
     if(byNum) S.push(Object.assign({
       type:'choices', no, nav:'Q' + no + ' 보기',
-      labels: (opts.length ? opts : ['','','','','']).map(esc),
+      labels: (opts.length ? opts : [{t:''},{t:''},{t:''},{t:''},{t:''}]).map(o => esc(o.t)),
       walker:true
     }, set));
 
     const ai = Math.max(0, Math.min(opts.length - 1, q.answerIndex | 0));
-    const at = opts[ai];
+    const at = opts[ai] || { t:'', img:'' };
     S.push(Object.assign({
       type:'answer', no, nav:'Q' + no + ' 정답',
       answerNo:   CIRCLED[ai] || String(ai + 1),
-      answerText: byNum ? '' : esc(at),
-      blank:      byNum || !String(at || '').trim()
+      answerText: byNum ? '' : esc(at.t),
+      answerImg:  byNum ? '' : at.img,
+      blank:      byNum || (!at.t.trim() && !at.img)
     }, set));
   });
 
@@ -1213,6 +1296,7 @@ function buildSlides(d){
     hero:{style:'left:520px; bottom:150px; width:170px;', walk:false},
     krTitle: esc(d.ending.title),
     lines:   d.ending.lines.map(l => inline(l)),
+    image:   imgSrc(d.ending.image),
     showCoins: d.ending.showCoins
   });
 
@@ -1257,10 +1341,12 @@ function heroHTML(h){
 
 function contentHTML(s){
   if(s.type === 'title'){
-    return `<div class="content">
+    return `<div class="content ${s.image ? 'content--haspic' : ''}">
+      ${s.image ? `<div class="cover-img" data-anim style="--d:40; margin-bottom:34px">
+                     <img src="${s.image}" alt=""></div>` : ''}
       <div class="eyebrow" data-anim style="--d:60">${s.eyebrow}</div>
-      <div class="title-en" data-anim style="--d:220; margin-top:56px">${s.en[0]}<br>${s.en[1]}</div>
-      <div data-anim style="--d:620; margin-top:52px"><button class="btn-start" tabindex="-1">START</button></div>
+      <div class="title-en" data-anim style="--d:220; margin-top:${s.image ? 34 : 56}px">${s.en[0]}<br>${s.en[1]}</div>
+      <div data-anim style="--d:620; margin-top:${s.image ? 36 : 52}px"><button class="btn-start" tabindex="-1">START</button></div>
     </div>`;
   }
 
@@ -1288,20 +1374,36 @@ function contentHTML(s){
   }
 
   if(s.type === 'quiz'){
-    const opts = (s.options || []).map((o,i) => {
-      return `<div class="option" data-anim style="--d:${540 + i*120}; --opt:${s.optSize||54}px">
-                <span class="blk">${ART.qblock}</span>
-                <span class="no">${pad2(i+1)}</span>
-                <span>${o}</span>
-              </div>`;
-    }).join('');
-    return `<div class="content">
+    /* 사진 보기는 세로 카드(사진 위, 글자 아래)로 바뀝니다.
+       한 문제 안에서 사진이 붙은 보기와 안 붙은 보기가 섞여도 칸 크기는 같습니다. */
+    const opts = (s.options || []).map((o,i) => s.photo
+      ? `<div class="option" data-anim style="--d:${540 + i*120}">
+           <span class="opt-head">
+             <span class="blk">${ART.qblock}</span>
+             <span class="no">${pad2(i+1)}</span>
+           </span>
+           ${o.img ? `<span class="opt-img"><img src="${o.img}" alt=""></span>` : ''}
+           ${o.text ? `<span class="opt-t">${o.text}</span>` : ''}
+         </div>`
+      : `<div class="option" data-anim style="--d:${540 + i*120}; --opt:${s.optSize||54}px">
+           <span class="blk">${ART.qblock}</span>
+           <span class="no">${pad2(i+1)}</span>
+           <span>${o.text}</span>
+         </div>`).join('');
+
+    /* 문제 사진과 보기 사진이 같이 있으면 위아래가 모자랍니다. 문제 사진을 낮춥니다. */
+    const qih = s.photo ? 200 : (opts ? 300 : 460);
+
+    return `<div class="content ${s.photo ? 'content--photo' : ''}">
       <div class="title-quiz" data-anim="drop" style="--d:40">QUIZ ${pad2(s.no)}</div>
-      <div data-anim style="--d:290; margin-top:52px">
+      <div data-anim style="--d:290; margin-top:${s.photo ? 36 : 52}px">
         <div class="q-text" style="font-size:${s.qSize||68}px">${s.question}</div>
         ${s.note ? `<div class="q-note">${s.note}</div>` : ''}
       </div>
-      ${opts ? `<div class="options" style="margin-top:64px">${opts}</div>` : ''}
+      ${s.image ? `<div class="q-img" data-anim style="--d:420; --qih:${qih}px">
+                     <img src="${s.image}" alt=""></div>` : ''}
+      ${opts ? `<div class="options ${s.photo ? 'options--img' : ''}"
+                     style="margin-top:${s.photo ? 40 : 64}px; --ph:${s.ph||300}px">${opts}</div>` : ''}
     </div>`;
   }
 
@@ -1322,8 +1424,10 @@ function contentHTML(s){
     return `<div class="content content--top">
       <div class="title-quiz" data-anim="drop" style="--d:40">QUIZ ${pad2(s.no)}</div>
       <div class="tease">정답은?</div>
-      <div class="answer-bubble ${s.blank ? 'answer-bubble--blank' : ''}">
-        <span class="no">${s.answerNo}</span><span>${s.answerText}</span>
+      <div class="answer-bubble ${s.blank ? 'answer-bubble--blank' : ''} ${s.answerImg ? 'answer-bubble--img' : ''}">
+        <span class="no">${s.answerNo}</span>
+        ${s.answerImg ? `<img src="${s.answerImg}" alt="">` : ''}
+        ${s.answerText ? `<span>${s.answerText}</span>` : ''}
       </div>
     </div>`;
   }
@@ -1337,6 +1441,8 @@ function contentHTML(s){
       ${s.showCoins ? `<div class="body-text" data-anim style="--d:760; margin-top:26px; font-size:36px; opacity:.9">
         획득한 코인 <span class="hl-gold" id="clear-coins">0</span>개
       </div>` : ''}
+      ${s.image ? `<div class="clear-img" data-anim style="--d:900">
+                     <img src="${s.image}" alt=""></div>` : ''}
     </div>`;
   }
   return '';

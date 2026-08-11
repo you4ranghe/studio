@@ -4,8 +4,9 @@
    ── 가운데 폼과 오른쪽 미리보기가 그 목차를 따라 함께 움직입니다.
    ══════════════════════════════════════════════════════════ */
 import { createStore, clone, get } from './store.js';
-import { renderFields, openCard } from './schema-form.js';
+import { renderFields, openCard, optIn } from './schema-form.js';
 import { loadTemplate, buildSingleFile, download, prettySize } from './build.js';
+import { images, hydrate, collectIds } from './imagestore.js';
 
 const $  = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -35,7 +36,10 @@ init().catch(err => {
 });
 
 async function init(){
-  tpl = await loadTemplate(tplDir);
+  /* 사진은 작업 JSON이 아니라 IndexedDB에 있습니다(imagestore.js).
+     폼을 그리기 전에 한 번 다 읽어와야 썸네일과 미리보기가 바로 나옵니다. */
+  const [t] = await Promise.all([loadTemplate(tplDir), images.load()]);
+  tpl = t;
   $('#doc').textContent = tpl.meta.name;
   document.title = tpl.meta.name + ' — 스튜디오';
 
@@ -51,6 +55,15 @@ async function init(){
   buildRail();
   wire();
   push();
+  sweep();
+}
+
+/* 어디에서도 안 쓰는 사진 치우기 — 보기나 문제를 지우면 사진이 남습니다.
+   저장이 끝난 뒤에 몰아서 합니다. */
+let sweepT = null;
+function sweep(){
+  clearTimeout(sweepT);
+  sweepT = setTimeout(() => images.gc(collectIds(store.data), tplId), 2500);
 }
 
 /* ══ 폼 — 한 화면에 쭉. 문제 카드는 접혀 있습니다 ══ */
@@ -107,9 +120,16 @@ function ctx(){
   return {
     store,
     prompts: tpl.prompts,
+    /* 사진칸이 쓰는 창구. add에 템플릿 id를 물려 다른 작업의 사진과 섞이지 않게 합니다. */
+    images: {
+      get: id => images.get(id),
+      url: id => images.url(id),
+      add: file => images.add(file, tplId)
+    },
     onEdit(path){
       push();
       refreshProgress();
+      sweep();
       if(path === 'quiz' || /^quiz\.\d+\.(question|answerIndex|options)/.test(path)) buildRail();
     },
     onFocus(path){ jumpTo(path); },
@@ -136,14 +156,14 @@ function buildRail(){
           sub: w % 2 === 0 ? '지상' : '지하',
           rows: slice.map((q, k) => {
             const i = w * 5 + k;
-            const opts = q.options || [];
+            const opts = (q.options || []).map(optIn);
             const txt = String(q.question || '').replace(/\s+/g, ' ').trim();
             return {
               key:'q' + i,
               num:'Q' + (i + 1),
               title: q.nav?.trim() || txt || '빈 문제',
               ans: opts.length ? ('①②③④⑤⑥⑦⑧⑨⑩'[q.answerIndex ?? 0] || '') : '',
-              incomplete: !txt || (q.layout !== 'numbers' && opts.filter(o => String(o).trim()).length < 2),
+              incomplete: !txt || (q.layout !== 'numbers' && opts.filter(filled).length < 2),
               target:'#qc-' + i,
               no: i + 1
             };
@@ -274,6 +294,9 @@ function observeSections(){
 }
 
 /* ══ 진행률 ══ */
+/* 보기는 글자나 사진 중 하나만 있어도 채운 것으로 봅니다 */
+const filled = o => !!(o.t.trim() || o.img);
+
 function sectionEmpty(sec){
   const walk = fs => fs.some(f => {
     if(f.type === 'repeater' && !f.fields){
@@ -295,7 +318,7 @@ function refreshProgress(){
     need.push(!!String(q.question ?? '').trim());
     need.push(q.layout === 'numbers'
       ? true
-      : (q.options || []).filter(o => String(o).trim()).length >= 2);
+      : (q.options || []).map(optIn).filter(filled).length >= 2);
   });
 
   const done = need.filter(Boolean).length;
@@ -308,10 +331,14 @@ function refreshProgress(){
 }
 
 /* ══ 미리보기 ══ */
+/* 작업 데이터에는 사진 id만 들어 있습니다(imagestore.js).
+   미리보기와 내려받기는 둘 다 진짜 사진이 박힌 판을 받아야 합니다. */
+const withImages = () => hydrate(store.data);
+
 let t = null;
 function push(){
   clearTimeout(t);
-  t = setTimeout(() => post({ type:'studio:data', data: store.data }), 160);
+  t = setTimeout(() => post({ type:'studio:data', data: withImages() }), 160);
 }
 function post(msg){ $('#frame').contentWindow?.postMessage(msg, '*'); }
 
@@ -374,7 +401,7 @@ function wire(){
       clearTimeout(armed); armed = null;
       store.reset(tpl.sample);
       reset.textContent = '샘플로 되돌리기';
-      renderSections(); buildRail(); push();
+      renderSections(); buildRail(); push(); sweep();
       return;
     }
     reset.textContent = '한 번 더 누르면 되돌립니다';
@@ -389,7 +416,7 @@ function setPane(p){
 }
 
 async function openNewTab(){
-  const blob = await buildSingleFile(tpl, store.data);
+  const blob = await buildSingleFile(tpl, withImages());
   const url = URL.createObjectURL(blob);
   window.open(url, '_blank', 'noopener');
   setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -401,7 +428,7 @@ async function doDownload(){
   btn.disabled = true;
   btn.textContent = '만드는 중';
   try{
-    const blob = await buildSingleFile(tpl, store.data);
+    const blob = await buildSingleFile(tpl, withImages());
     download(blob, `${String(store.read('hud.name') || '돌잔치').trim()} 퀴즈.html`);
     btn.textContent = prettySize(blob.size) + ' 내려받음';
   }catch(err){

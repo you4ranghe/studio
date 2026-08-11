@@ -43,6 +43,13 @@
           "maxLength": 8
         },
         {
+          "path": "cover.image",
+          "type": "image",
+          "label": "표지 사진",
+          "optional": true,
+          "hint": "표지 큰 글씨 위에 들어갑니다. 얼굴이 가운데 오는 사진이 예쁩니다."
+        },
+        {
           "path": "hud.lives",
           "type": "select",
           "label": "상태바 하트 개수",
@@ -146,6 +153,13 @@
               "hint": "엔터로 줄을 나눌 수 있습니다. 글자 크기는 길이에 맞춰 자동으로 줄어듭니다."
             },
             {
+              "path": "image",
+              "type": "image",
+              "label": "문제 사진",
+              "optional": true,
+              "hint": "문제 글 아래에 들어갑니다. \"이 사진은 언제 찍었을까요?\" 같은 문제에 씁니다."
+            },
+            {
               "path": "layout",
               "type": "select",
               "label": "보기 방식",
@@ -153,19 +167,20 @@
               "compact": true,
               "affectsForm": true,
               "choices": [
-                { "value": "text",    "label": "글자 보기",     "desc": "보기를 문제와 같은 화면에 보여줍니다" },
+                { "value": "text",    "label": "글자",          "desc": "보기를 글자로 보여줍니다" },
+                { "value": "photo",   "label": "사진",          "desc": "보기마다 사진을 붙입니다. 글자를 같이 쓰면 사진 아래에 나옵니다" },
                 { "value": "numbers", "label": "번호만 (실물)", "desc": "실물·사진을 앞에 두고 번호로 고릅니다. 보기 화면이 한 장 더 생깁니다" }
               ]
             },
             {
               "path": "options",
-              "type": "repeater",
+              "type": "options",
               "label": "보기",
-              "of": "text",
               "min": 2, "max": 5, "recommended": 5,
               "addLabel": "보기 추가",
               "maxLength": 14,
-              "numbered": true
+              "numbered": true,
+              "image": { "when": "layout", "is": "photo" }
             },
             {
               "path": "answerIndex",
@@ -213,6 +228,13 @@
           "addLabel": "줄 추가",
           "maxLength": 28,
           "markup": true
+        },
+        {
+          "path": "ending.image",
+          "type": "image",
+          "label": "마무리 사진",
+          "optional": true,
+          "hint": "감사 인사 아래에 들어갑니다. 가족사진이 잘 어울립니다."
         },
         {
           "path": "ending.showCoins",

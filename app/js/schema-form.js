@@ -7,6 +7,16 @@ import { get, joinPath } from './store.js';
 
 const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮';
 
+/* 보기는 예전에 글자만이었습니다("아빠"). 사진이 붙으면서 {t,img}가 됐습니다.
+   이미 저장된 작업과 sample.json이 아직 글자 배열이라 읽을 때 맞춰줍니다. */
+export const optIn = o => (o && typeof o === 'object')
+  ? { t: String(o.t ?? ''), img: String(o.img ?? '') }
+  : { t: String(o ?? ''), img: '' };
+
+const prettyKB = n => n < 1024 * 1024
+  ? Math.round(n / 1024) + 'KB'
+  : (n / 1024 / 1024).toFixed(1) + 'MB';
+
 const el = (tag, cls, html) => {
   const n = document.createElement(tag);
   if(cls) n.className = cls;
@@ -47,8 +57,10 @@ function field(f, ctx, basePath){
   const path = joinPath(basePath, f.path);
   switch(f.type){
     case 'repeater': return repeater(f, ctx, path);
+    case 'options':  return options(f, ctx, path, basePath);
     case 'select':   return select(f, ctx, path);
     case 'toggle':   return toggle(f, ctx, path);
+    case 'image':    return imageField(f, ctx, path);
     case 'answer':   return answer(f, ctx, path, basePath);
     default:         return textField(f, ctx, path);
   }
@@ -172,6 +184,202 @@ function toggle(f, ctx, path){
   return wrap;
 }
 
+/* ── 사진 ──
+   고른 사진은 그 자리에서 장변 1000px로 줄여 IndexedDB에 넣고,
+   작업 데이터에는 id 문자열만 남깁니다. 이유는 imagestore.js 맨 위에 적었습니다.
+   small은 보기 줄에 끼워 넣는 작은 모양입니다. */
+function imagePicker(ctx, path, small){
+  const wrap = el('div', 'imgw' + (small ? ' imgw--s' : ''));
+  const box  = el('div', 'imgp');
+  const err  = el('p', 'imgp__e');
+  wrap.append(box, err);
+
+  const file = el('input');
+  file.type = 'file';
+  file.accept = 'image/*';
+  file.hidden = true;
+  const pick = () => file.click();
+
+  const draw = () => {
+    const rec = ctx.images?.get(ctx.store.read(path));
+    box.innerHTML = '';
+    box.append(file);
+    box.dataset.has = rec ? '1' : '0';
+
+    if(!rec){
+      const b = el('button', 'imgp__add',
+        icon('img') + (small ? '' : '<span>사진 고르기</span>'));
+      b.type = 'button';
+      b.title = '사진 고르기 — 끌어다 놓아도 됩니다';
+      b.addEventListener('click', pick);
+      box.append(b);
+      return;
+    }
+
+    const t = el('button', 'imgp__t');
+    t.type = 'button';
+    t.title = (rec.name || '사진') + ' — 눌러서 바꾸기';
+    t.style.backgroundImage = `url("${rec.url}")`;
+
+    const x = el('button', 'imgp__x', icon('x'));
+    x.type = 'button';
+    x.title = '사진 빼기';
+    x.addEventListener('click', () => {
+      ctx.store.write(path, '');
+      ctx.onEdit?.(path);
+      draw();
+    });
+
+    t.addEventListener('click', pick);
+    box.append(t, x);
+    if(!small) box.append(el('span', 'imgp__s',
+      `${rec.w}×${rec.h} · ${prettyKB(rec.bytes)}`));
+  };
+
+  const take = async f0 => {
+    if(!f0) return;
+    err.textContent = '';
+    box.dataset.busy = '1';
+    try{
+      const rec = await ctx.images.add(f0);
+      ctx.store.write(path, rec.id);
+      ctx.onEdit?.(path);
+    }catch(e){
+      /* 창을 띄우지 않습니다. 편집을 끊지 않고 그 자리에 적습니다. */
+      err.textContent = e.message || '사진을 넣지 못했습니다.';
+      console.warn(e);
+    }finally{
+      box.dataset.busy = '0';
+      draw();
+    }
+  };
+
+  file.addEventListener('change', () => {
+    const f0 = file.files?.[0];
+    file.value = '';          // 같은 파일을 다시 골라도 change가 오게 비웁니다
+    take(f0);
+  });
+
+  ['dragenter', 'dragover'].forEach(t => box.addEventListener(t, e => {
+    e.preventDefault();
+    box.dataset.drop = '1';
+  }));
+  ['dragleave', 'dragend'].forEach(t => box.addEventListener(t, () => {
+    box.dataset.drop = '0';
+  }));
+  box.addEventListener('drop', e => {
+    e.preventDefault();
+    box.dataset.drop = '0';
+    take([...(e.dataTransfer?.files || [])].find(x => /^image\//.test(x.type)));
+  });
+
+  draw();
+  wrap.__refresh = draw;
+  return wrap;
+}
+
+function imageField(f, ctx, path){
+  const wrap = el('div', 'f');
+  wrap.appendChild(label(f));
+  wrap.appendChild(imagePicker(ctx, path, false));
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
+  return wrap;
+}
+
+/* ── 보기 ──
+   글자만 쓰던 repeater를 대신합니다. 보기 하나는 {t, img}이고,
+   사진만 넣으면 사진만, 둘 다 넣으면 사진 아래 글자가 나옵니다.
+   f.image = { when:"layout", is:"photo" } 이면 그 조건일 때만 사진칸이 열립니다. */
+function options(f, ctx, path, basePath){
+  const wrap = el('div', 'f');
+  const lab = label(f);
+  wrap.appendChild(lab);
+
+  const withImg = !f.image ||
+    String(ctx.store.read(joinPath(basePath, f.image.when))) === String(f.image.is);
+
+  const list = el('div', 'rep');
+  wrap.appendChild(list);
+
+  /* 저장된 작업과 sample.json은 아직 글자 배열입니다. 여기서 한 번만 바꿔 씁니다. */
+  const read = () => {
+    let items = ctx.store.read(path);
+    if(!Array.isArray(items)){
+      items = [];
+      ctx.store.write(path, items);
+      return items;
+    }
+    if(items.every(o => o && typeof o === 'object')) return items;
+    const next = items.map(optIn);
+    ctx.store.write(path, next);
+    return next;
+  };
+
+  const draw = () => {
+    const items = read();
+    list.innerHTML = '';
+
+    items.forEach((_, i) => {
+      const itemPath = path + '.' + i;
+      const r = el('div', 'rep__r' + (withImg ? ' rep__r--img' : ''));
+
+      r.appendChild(el('span', 'rep__n px', f.numbered ? (CIRCLED[i] || i + 1) : String(i + 1)));
+
+      const inp = el('input', 'in');
+      inp.type = 'text';
+      inp.value = ctx.store.read(itemPath + '.t') ?? '';
+      inp.placeholder = withImg ? '사진 아래 글자 (없어도 됩니다)' : '';
+      if(f.maxLength) inp.maxLength = f.maxLength + 10;
+      inp.addEventListener('input', () => {
+        ctx.store.write(itemPath + '.t', inp.value);
+        ctx.onEdit?.(itemPath);
+        refreshCard(r);
+      });
+      inp.addEventListener('focus', () => ctx.onFocus?.(itemPath));
+      r.appendChild(inp);
+
+      if(withImg) r.appendChild(imagePicker({
+        ...ctx,
+        onEdit(p){ ctx.onEdit?.(p); refreshCard(r); }
+      }, itemPath + '.img', true));
+
+      const x = el('button', 'rep__x', icon('x'));
+      x.type = 'button';
+      x.title = '이 보기 지우기';
+      x.disabled = items.length <= (f.min ?? 0);
+      x.addEventListener('click', () => {
+        const arr = read();
+        arr.splice(i, 1);
+        ctx.store.write(path, arr);
+        ctx.onEdit?.(path);
+        draw();
+        refreshCard(list);
+      });
+      r.appendChild(x);
+      list.appendChild(r);
+    });
+
+    const add = el('button', 'rep__add', '＋ ' + esc(f.addLabel || '보기 추가'));
+    add.type = 'button';
+    add.disabled = f.max != null && items.length >= f.max;
+    add.addEventListener('click', () => {
+      const arr = read();
+      arr.push({ t:'', img:'' });
+      ctx.store.write(path, arr);
+      ctx.onEdit?.(path);
+      draw();
+      list.querySelector('.rep__r:last-of-type input')?.focus({ preventScroll:true });
+    });
+    list.appendChild(add);
+  };
+
+  draw();
+  if(withImg) wrap.appendChild(el('p', 'f__h',
+    '사진은 장변 1000px로 줄여서 넣습니다. 글자를 비우면 사진만 나옵니다.'));
+  else if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
+  return wrap;
+}
+
 /* ── 정답 ──
    보기 중에서만 고를 수 있습니다.
    그래서 "보기에 없는 정답"이 구조적으로 만들어지지 않습니다. */
@@ -185,17 +393,24 @@ function answer(f, ctx, path, basePath){
   const optPath = joinPath(basePath, f.source);
 
   const draw = () => {
-    const opts = get(ctx.store.data, optPath) || [];
+    const opts = (get(ctx.store.data, optPath) || []).map(optIn);
     const cur  = ctx.store.read(path) ?? 0;
     box.innerHTML = '';
     opts.forEach((o, i) => {
       const b = el('button', 'ans__b');
       b.type = 'button';
       b.setAttribute('aria-pressed', String(i === cur));
-      b.append(
-        el('span', 'ans__k', CIRCLED[i] || String(i + 1)),
-        el('span', 'ans__t', esc(String(o).trim() || '—'))
-      );
+      b.append(el('span', 'ans__k', CIRCLED[i] || String(i + 1)));
+
+      /* 사진 보기일 때 글자만 보여주면 어느 게 정답인지 알 수 없습니다 */
+      const url = ctx.images?.url(o.img);
+      if(url){
+        const th = el('span', 'ans__i');
+        th.style.backgroundImage = `url("${url}")`;
+        b.append(th);
+      }
+      b.append(el('span', 'ans__t', esc(o.t.trim() || (url ? '' : '—'))));
+
       b.addEventListener('click', () => {
         ctx.store.write(path, i);
         ctx.onEdit?.(path);
@@ -220,9 +435,13 @@ function repeater(f, ctx, path){
   const list = el('div', cards ? '' : 'rep');
   wrap.appendChild(list);
 
+  const seed = x => x.default ?? (
+    x.type === 'options'  ? Array.from({ length: x.recommended ?? x.min ?? 2 },
+                                       () => ({ t:'', img:'' })) :
+    x.type === 'repeater' ? ['', '', '', '', ''] : '');
+
   const blank = () => cards
-    ? Object.fromEntries(f.fields.map(x =>
-        [x.path, x.default ?? (x.type === 'repeater' ? ['', '', '', '', ''] : '')]))
+    ? Object.fromEntries(f.fields.map(x => [x.path, seed(x)]))
     : '';
 
   const draw = () => {
@@ -310,7 +529,7 @@ function bank(f, ctx, path, push, close){
           it.options.filter(o => o).join(' · ') || '보기를 직접 채웁니다';
         b.addEventListener('click', () => push({
           question: fillName(it.q, name),
-          options: [...it.options],
+          options: it.options.map(optIn),
           answerIndex: 0,
           layout: 'text',
           note: '',

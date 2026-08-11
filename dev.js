@@ -16,7 +16,8 @@ const TYPES = {
   '.woff2':'font/woff2',
   '.svg' :'image/svg+xml',
   '.png' :'image/png',
-  '.jpg' :'image/jpeg'
+  '.jpg' :'image/jpeg',
+  '.mp3' :'audio/mpeg'
 };
 
 http.createServer((req, res) => {

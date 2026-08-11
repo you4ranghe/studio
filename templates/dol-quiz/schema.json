@@ -15,7 +15,7 @@
           "path": "hud.name",
           "type": "text",
           "label": "아이 이름",
-          "placeholder": "하윤",
+          "placeholder": "채원",
           "maxLength": 6,
           "required": true,
           "hint": "화면 왼쪽 위 상태바에 표시됩니다. 두세 글자가 가장 예쁩니다."

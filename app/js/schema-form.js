@@ -32,8 +32,8 @@ const opened = new Set();
 export const openCard = key => opened.add(key);
 
 /* ── 이름 넣기 ──
-   한국어 이름 뒤의 '이'는 받침이 있을 때만 붙습니다. 하윤이 / 지호
-   부를 때도 갈립니다. 하윤아 / 지호야
+   한국어 이름 뒤의 '이'는 받침이 있을 때만 붙습니다. 채원이 / 지호
+   부를 때도 갈립니다. 채원아 / 지호야
    이걸 안 하면 제안 문구가 "지호이가"처럼 어색해집니다. */
 const batchim = ch => {
   const c = String(ch || '').charCodeAt(0);

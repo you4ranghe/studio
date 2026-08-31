@@ -161,6 +161,7 @@ function buildRail(){
         groups.push({
           title: `WORLD ${w + 1}`,
           sub: w % 2 === 0 ? '지상' : '지하',
+          settings: '#worlds-box',
           rows: slice.map((q, k) => {
             const i = base + k;
             const opts = (q.options || []).map(optIn);
@@ -202,8 +203,17 @@ function buildRail(){
   groups.forEach(g => {
     const box = document.createElement('div');
     box.className = 'rgroup';
-    box.innerHTML = `<div class="rgroup__h"><span class="rgroup__t">${g.title}</span>` +
-                    (g.sub ? `<span class="rgroup__s">${g.sub}</span>` : '') + '</div>';
+    const head = document.createElement(g.settings ? 'button' : 'div');
+    head.className = 'rgroup__h';
+    if(g.settings){
+      head.type = 'button';
+      head.title = '월드마다 문제를 몇 개 담을지 정합니다';
+    }
+    head.innerHTML = `<span class="rgroup__t">${g.title}</span>` +
+                     (g.sub ? `<span class="rgroup__s">${g.sub}</span>` : '') +
+                     (g.settings ? `<span class="rgroup__e">${'문제 수'}</span>` : '');
+    if(g.settings) head.addEventListener('click', () => flashWorlds());
+    box.appendChild(head);
 
     g.rows.forEach(r => {
       rows.push(r);
@@ -230,6 +240,17 @@ function buildRail(){
 
   refreshProgress();
   observeSections();
+}
+
+/* 목차의 WORLD 머리 → 월드 구성 칸. 처음 쓰는 사람은 이 칸을 못 찾습니다. */
+function flashWorlds(){
+  const box = $('#worlds-box');
+  if(!box) return;
+  glide(box);
+  box.classList.remove('wbox--hi');
+  void box.offsetWidth;                 // 연속으로 눌러도 다시 반짝이게
+  box.classList.add('wbox--hi');
+  box.querySelector('.wr__in')?.focus({ preventScroll:true });
 }
 
 /* 폼을 목적지까지 굴립니다.

@@ -386,28 +386,19 @@ function options(f, ctx, path, basePath){
    지상↔지하로 바뀌고 WORLD 카드가 뜹니다.
    ── renderer.html의 worldPos()와 규칙이 같아야 합니다. 두 곳이 어긋나면
       편집기에서 본 WORLD 표기와 내려받은 결과물이 달라집니다.
-   ── 저장하는 값은 "월드가 담기로 한 수"입니다. 지금 담긴 수가 아닙니다.
-      7문제일 때 [5,5]로 두면 WORLD 2가 두 문제만 갖고 있다가, 문제를
-      더하면 다섯까지 차오릅니다. 담긴 수를 저장하면 여덟 번째 문제가
-      한 문제짜리 WORLD 3을 만들어버립니다. */
+   ── 저장하는 값은 실제로 담긴 수입니다. 합이 늘 문제 수와 같습니다.
+      그래서 문제를 더하거나 지울 때 그 문제가 속한 월드를 함께 고쳐야 합니다
+      (worldsAfterAdd / worldsAfterRemove). 안 그러면 WORLD 1에서 지웠는데
+      뒤 문제가 당겨 올라와 WORLD 2가 줄어듭니다. */
 const clampW = n => Math.max(1, Math.min(20, n | 0));
 
-/* 저장할 값 — 문제 수를 덮을 만큼 마지막 칸을 되풀이해 늘립니다.
-   문제가 줄어도 줄이지 않습니다. 다시 늘리면 원래 칸으로 돌아옵니다. */
-export function worldIntent(sizes, total){
-  const want = (Array.isArray(sizes) ? sizes : []).map(clampW);
-  const list = want.length ? want.slice() : [5];
-  let sum = list.reduce((a, b) => a + b, 0);
-  const last = list[list.length - 1];
-  while(sum < Math.max(0, total | 0)){ list.push(last); sum += last; }
-  return list;
-}
-
-/* 지금 실제로 담긴 수 — 목차를 묶고 Q 범위를 적는 데 씁니다. */
+/* 저장된 칸을 문제 수에 맞춰 고칩니다. 칸이 모자라면 마지막 칸 수로 더 만듭니다.
+   worlds가 없던 예전 작업이 [5,5,…]로 읽히는 것도 여기입니다. */
 export function worldSizes(sizes, total){
   total = Math.max(0, total | 0);
   if(!total) return [];
-  const list = worldIntent(sizes, total);
+  const want = (Array.isArray(sizes) ? sizes : []).map(clampW);
+  const list = want.length ? want : [5];
   const out = [];
   let left = total, i = 0;
   while(left > 0){
@@ -431,25 +422,69 @@ export function worldTag(sizes, i){
   }
 }
 
+/* 문제 하나를 지운 뒤 — total은 지운 뒤의 문제 수입니다 */
+export function worldsAfterRemove(sizes, i, total){
+  const list = worldSizes(sizes, total + 1);        // 지우기 전 기준으로 셉니다
+  if(!list.length) return [];
+  const w = worldTag(list, i).world - 1;
+  list[w] -= 1;
+  return list.filter(n => n > 0);
+}
+
+/* 문제 하나를 맨 뒤에 더한 뒤 — total은 더한 뒤의 문제 수입니다 */
+export function worldsAfterAdd(sizes, total){
+  const list = worldSizes(sizes, total - 1);
+  if(!list.length) return total > 0 ? [total] : [];
+  list[list.length - 1] += 1;
+  return list;
+}
+
+/* 월드 i의 칸을 v로 — 경계를 끄는 것과 같습니다.
+   줄이면 넘친 문제가 뒤 월드로 가고(뒤가 없으면 새 월드가 생깁니다),
+   늘리면 뒤 월드에서 끌어옵니다. 끌어올 게 없으면 거기까지만 늘어납니다. */
+export function worldsAfterResize(sizes, i, v, total){
+  const list = worldSizes(sizes, total);
+  if(!list.length) return list;
+  i = Math.min(Math.max(0, i | 0), list.length - 1);
+  v = clampW(v);
+  let delta = v - list[i];
+  if(delta === 0) return list;
+
+  if(delta > 0){
+    for(let k = i + 1; k < list.length && delta > 0; k++){
+      const take = Math.min(list[k], delta);
+      list[k] -= take;
+      delta  -= take;
+    }
+    list[i] = v - delta;
+  }else{
+    list[i] = v;
+    if(i + 1 < list.length) list[i + 1] += -delta;
+    else list.push(-delta);
+  }
+  return list.filter(n => n > 0);
+}
+
 /* ── 월드 구성 칸 ── */
 let worldsRedraw = null;
 export const refreshWorlds = () => worldsRedraw?.();
 
 function worldsField(f, ctx, path){
-  const wrap = el('div', 'f');
+  const wrap = el('div', 'f wbox');
+  wrap.id = 'worlds-box';
   wrap.appendChild(label(f));
   const list = el('div', 'rep');
   wrap.appendChild(list);
-  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
   const sum = el('p', 'f__h');
   wrap.appendChild(sum);
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
 
   const cap   = f.max || 20;
   const total = () => (ctx.store.read(f.countFrom || 'quiz') || []).length;
 
-  /* 문제를 더하거나 지웠으면 저장된 칸을 여기서 맞춰 씁니다. */
+  /* 문제 수와 어긋났으면 여기서 맞춰 씁니다 */
   const read = () => {
-    const fixed = worldIntent(ctx.store.read(path), total());
+    const fixed = worldSizes(ctx.store.read(path), total());
     const cur   = ctx.store.read(path);
     if(!Array.isArray(cur) || cur.length !== fixed.length || cur.some((n, i) => n !== fixed[i])){
       ctx.store.write(path, fixed);
@@ -459,16 +494,16 @@ function worldsField(f, ctx, path){
 
   /* 문제 카드 머리의 WORLD 표기(1-3)도 같이 갈아 끼웁니다.
      폼을 통째로 다시 그리면 숫자칸에서 손이 떨어져서 여기만 손봅니다. */
-  const paintCards = intent => {
+  const paintCards = sizes => {
     document.querySelectorAll('.qc').forEach((c, i) => {
-      const t = worldTag(intent, i);
+      const t = worldTag(sizes, i);
       const b = c.querySelector('.qc__w');
       if(b) b.textContent = t.world + '-' + t.stage;
     });
   };
 
   const apply = (next, focus) => {
-    ctx.store.write(path, worldIntent(next, total()));
+    ctx.store.write(path, worldSizes(next, total()));
     ctx.onEdit?.(path);
     draw(focus);
   };
@@ -477,12 +512,11 @@ function worldsField(f, ctx, path){
      숫자를 고치면 줄이 늘거나 줄어 다시 그려야 하는데, 그때 손이 떨어지면
      두 자리 수를 칠 수 없습니다. */
   function draw(focus){
-    const intent = read();
-    const actual = worldSizes(intent, total());
+    const sizes = read();
     list.innerHTML = '';
 
     let from = 1;
-    actual.forEach((n, i) => {
+    sizes.forEach((n, i) => {
       const to = from + n - 1;
       const r  = el('div', 'wr');
       r.append(
@@ -494,25 +528,21 @@ function worldsField(f, ctx, path){
       inp.type = 'number';
       inp.min = 1;
       inp.max = cap;
-      inp.value = String(intent[i]);
+      inp.value = String(n);
       inp.addEventListener('input', () => {
         const v = parseInt(inp.value, 10);
         if(!Number.isFinite(v) || v < 1) return;      // 지우는 중일 수 있습니다
-        const next = intent.slice();
-        next[i] = Math.min(cap, v);
-        apply(next, i);               // 뒤 월드는 자리만 밀립니다
+        apply(worldsAfterResize(sizes, i, v, total()), i);
       });
       r.append(inp, el('span', 'wr__u', '문제'));
-
-      /* 담기로 한 수(칸)와 지금 담긴 수가 다를 수 있습니다. Q 범위가 사실입니다. */
       r.appendChild(el('span', 'wr__r px', n > 1 ? 'Q' + from + '–Q' + to : 'Q' + from));
 
       const x = el('button', 'rep__x', icon('x'));
       x.type = 'button';
       x.title = i === 0 ? '뒤 월드에 합치기' : '앞 월드에 합치기';
-      x.disabled = actual.length <= 1;
+      x.disabled = sizes.length <= 1;
       x.addEventListener('click', () => {
-        const next = intent.slice();
+        const next = sizes.slice();
         const [gone] = next.splice(i, 1);
         const j = i === 0 ? 0 : i - 1;
         next[j] = (next[j] || 0) + gone;
@@ -525,32 +555,32 @@ function worldsField(f, ctx, path){
     });
 
     /* 마지막 월드를 둘로 나눠 새 월드를 만듭니다 */
-    const k    = actual.length - 1;
-    const last = k >= 0 ? intent[k] : 0;
+    const k    = sizes.length - 1;
+    const last = k >= 0 ? sizes[k] : 0;
     const add  = el('button', 'rep__add', '＋ ' + esc(f.addLabel || '월드 추가'));
     add.type = 'button';
-    add.disabled = k < 0 || last < 2 || actual[k] < 2;
+    add.disabled = last < 2;
     add.title = add.disabled
       ? '마지막 월드에 문제가 둘은 있어야 나눌 수 있습니다'
       : '마지막 월드를 둘로 나눕니다';
     add.addEventListener('click', () => {
       const half = Math.ceil(last / 2);
-      const next = intent.slice();
+      const next = sizes.slice();
       next.splice(k, 1, half, last - half);
       apply(next);
     });
     list.appendChild(add);
 
-    if(!actual.length) list.appendChild(el('p', 'f__h', '문제를 넣으면 월드가 생깁니다.'));
+    if(!sizes.length) list.appendChild(el('p', 'f__h', '문제를 넣으면 월드가 생깁니다.'));
 
-    sum.textContent = actual.length
-      ? `문제 ${total()}개를 ${actual.join(' + ')}로 나눴습니다.`
+    sum.textContent = sizes.length
+      ? `문제 ${total()}개를 ${sizes.join(' + ')}로 나눴습니다.`
       : '';
 
-    paintCards(intent);
+    paintCards(sizes);
 
     if(focus != null){
-      const back = list.querySelectorAll('.wr__in')[Math.min(focus, actual.length - 1)];
+      const back = list.querySelectorAll('.wr__in')[Math.min(focus, sizes.length - 1)];
       if(back){
         back.focus();
         /* 숫자칸은 setSelectionRange를 못 씁니다. 값을 다시 넣어 커서를 끝으로 보냅니다. */
@@ -641,6 +671,11 @@ function repeater(f, ctx, path){
       const next = ctx.store.read(path);
       next.push(seed ?? blank());
       ctx.store.write(path, next);
+      /* 새 문제는 마지막 월드에 붙습니다 — 한 문제짜리 월드가 새로 생기지 않게 */
+      if(f.worldsFrom){
+        ctx.store.write(f.worldsFrom,
+          worldsAfterAdd(ctx.store.read(f.worldsFrom), next.length));
+      }
       if(cards) opened.add(path + '.' + (next.length - 1));
       ctx.onEdit?.(path);
       draw();
@@ -881,6 +916,12 @@ function tools(f, ctx, path, i, count, redraw){
       const arr = ctx.store.read(path);
       arr.splice(i, 1);
       ctx.store.write(path, arr);
+      /* 지운 문제가 있던 월드를 줄입니다. 이걸 빠뜨리면 WORLD 1에서 지웠는데
+         뒤 문제가 당겨 올라와 WORLD 2가 줄어듭니다. */
+      if(f.worldsFrom){
+        ctx.store.write(f.worldsFrom,
+          worldsAfterRemove(ctx.store.read(f.worldsFrom), i, arr.length));
+      }
       opened.delete(path + '.' + i);
       ctx.onEdit?.(path);
       redraw();

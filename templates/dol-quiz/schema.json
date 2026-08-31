@@ -131,13 +131,23 @@
       "label": "문제",
       "slide": "quiz",
       "group": "문제",
-      "desc": "5문제마다 배경이 지상에서 지하로 바뀝니다. 문제 수는 자유입니다.",
+      "desc": "월드가 바뀔 때마다 배경이 지상에서 지하로 바뀝니다. 문제 수도, 월드마다 담을 문제 수도 자유입니다.",
       "fields": [
+        {
+          "path": "worlds",
+          "type": "worlds",
+          "label": "월드 구성",
+          "countFrom": "quiz",
+          "max": 20,
+          "addLabel": "월드 추가",
+          "hint": "월드가 넘어가는 자리에서 배경이 지상↔지하로 바뀌고 WORLD 카드가 뜹니다. 숫자를 고치면 뒤 월드가 따라 움직입니다."
+        },
         {
           "path": "quiz",
           "type": "repeater",
           "label": "문제",
           "itemLabel": "Q{n}",
+          "worldsFrom": "worlds",
           "min": 1, "max": 20, "recommended": 10,
           "addLabel": "문제 추가",
           "collapsible": true,

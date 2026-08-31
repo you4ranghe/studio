@@ -62,6 +62,7 @@ function field(f, ctx, basePath){
     case 'toggle':   return toggle(f, ctx, path);
     case 'image':    return imageField(f, ctx, path);
     case 'answer':   return answer(f, ctx, path, basePath);
+    case 'worlds':   return worldsField(f, ctx, path);
     default:         return textField(f, ctx, path);
   }
 }
@@ -380,6 +381,189 @@ function options(f, ctx, path, basePath){
   return wrap;
 }
 
+/* ══ 월드 나누기 ══
+   문제를 월드별로 몇 개씩 담을지입니다. 월드가 바뀌는 자리에서 배경이
+   지상↔지하로 바뀌고 WORLD 카드가 뜹니다.
+   ── renderer.html의 worldPos()와 규칙이 같아야 합니다. 두 곳이 어긋나면
+      편집기에서 본 WORLD 표기와 내려받은 결과물이 달라집니다.
+   ── 저장하는 값은 "월드가 담기로 한 수"입니다. 지금 담긴 수가 아닙니다.
+      7문제일 때 [5,5]로 두면 WORLD 2가 두 문제만 갖고 있다가, 문제를
+      더하면 다섯까지 차오릅니다. 담긴 수를 저장하면 여덟 번째 문제가
+      한 문제짜리 WORLD 3을 만들어버립니다. */
+const clampW = n => Math.max(1, Math.min(20, n | 0));
+
+/* 저장할 값 — 문제 수를 덮을 만큼 마지막 칸을 되풀이해 늘립니다.
+   문제가 줄어도 줄이지 않습니다. 다시 늘리면 원래 칸으로 돌아옵니다. */
+export function worldIntent(sizes, total){
+  const want = (Array.isArray(sizes) ? sizes : []).map(clampW);
+  const list = want.length ? want.slice() : [5];
+  let sum = list.reduce((a, b) => a + b, 0);
+  const last = list[list.length - 1];
+  while(sum < Math.max(0, total | 0)){ list.push(last); sum += last; }
+  return list;
+}
+
+/* 지금 실제로 담긴 수 — 목차를 묶고 Q 범위를 적는 데 씁니다. */
+export function worldSizes(sizes, total){
+  total = Math.max(0, total | 0);
+  if(!total) return [];
+  const list = worldIntent(sizes, total);
+  const out = [];
+  let left = total, i = 0;
+  while(left > 0){
+    const take = Math.min(list[Math.min(i, list.length - 1)], left);
+    out.push(take);
+    left -= take;
+    i++;
+  }
+  return out;
+}
+
+/* 문제 순번(0부터) → { world, stage } */
+export function worldTag(sizes, i){
+  const want = (Array.isArray(sizes) ? sizes : []).map(clampW);
+  const list = want.length ? want : [5];
+  let w = 0, left = Math.max(0, i | 0);
+  for(;;){
+    const size = list[Math.min(w, list.length - 1)];
+    if(left < size) return { world: w + 1, stage: left + 1 };
+    left -= size; w++;
+  }
+}
+
+/* ── 월드 구성 칸 ── */
+let worldsRedraw = null;
+export const refreshWorlds = () => worldsRedraw?.();
+
+function worldsField(f, ctx, path){
+  const wrap = el('div', 'f');
+  wrap.appendChild(label(f));
+  const list = el('div', 'rep');
+  wrap.appendChild(list);
+  if(f.hint) wrap.appendChild(el('p', 'f__h', esc(f.hint)));
+  const sum = el('p', 'f__h');
+  wrap.appendChild(sum);
+
+  const cap   = f.max || 20;
+  const total = () => (ctx.store.read(f.countFrom || 'quiz') || []).length;
+
+  /* 문제를 더하거나 지웠으면 저장된 칸을 여기서 맞춰 씁니다. */
+  const read = () => {
+    const fixed = worldIntent(ctx.store.read(path), total());
+    const cur   = ctx.store.read(path);
+    if(!Array.isArray(cur) || cur.length !== fixed.length || cur.some((n, i) => n !== fixed[i])){
+      ctx.store.write(path, fixed);
+    }
+    return fixed;
+  };
+
+  /* 문제 카드 머리의 WORLD 표기(1-3)도 같이 갈아 끼웁니다.
+     폼을 통째로 다시 그리면 숫자칸에서 손이 떨어져서 여기만 손봅니다. */
+  const paintCards = intent => {
+    document.querySelectorAll('.qc').forEach((c, i) => {
+      const t = worldTag(intent, i);
+      const b = c.querySelector('.qc__w');
+      if(b) b.textContent = t.world + '-' + t.stage;
+    });
+  };
+
+  const apply = (next, focus) => {
+    ctx.store.write(path, worldIntent(next, total()));
+    ctx.onEdit?.(path);
+    draw(focus);
+  };
+
+  /* focus는 다시 그린 뒤 커서를 돌려놓을 줄 번호입니다.
+     숫자를 고치면 줄이 늘거나 줄어 다시 그려야 하는데, 그때 손이 떨어지면
+     두 자리 수를 칠 수 없습니다. */
+  function draw(focus){
+    const intent = read();
+    const actual = worldSizes(intent, total());
+    list.innerHTML = '';
+
+    let from = 1;
+    actual.forEach((n, i) => {
+      const to = from + n - 1;
+      const r  = el('div', 'wr');
+      r.append(
+        el('span', 'wr__n px', 'WORLD ' + (i + 1)),
+        el('span', 'wr__g', i % 2 === 0 ? '지상' : '지하')
+      );
+
+      const inp = el('input', 'in wr__in');
+      inp.type = 'number';
+      inp.min = 1;
+      inp.max = cap;
+      inp.value = String(intent[i]);
+      inp.addEventListener('input', () => {
+        const v = parseInt(inp.value, 10);
+        if(!Number.isFinite(v) || v < 1) return;      // 지우는 중일 수 있습니다
+        const next = intent.slice();
+        next[i] = Math.min(cap, v);
+        apply(next, i);               // 뒤 월드는 자리만 밀립니다
+      });
+      r.append(inp, el('span', 'wr__u', '문제'));
+
+      /* 담기로 한 수(칸)와 지금 담긴 수가 다를 수 있습니다. Q 범위가 사실입니다. */
+      r.appendChild(el('span', 'wr__r px', n > 1 ? 'Q' + from + '–Q' + to : 'Q' + from));
+
+      const x = el('button', 'rep__x', icon('x'));
+      x.type = 'button';
+      x.title = i === 0 ? '뒤 월드에 합치기' : '앞 월드에 합치기';
+      x.disabled = actual.length <= 1;
+      x.addEventListener('click', () => {
+        const next = intent.slice();
+        const [gone] = next.splice(i, 1);
+        const j = i === 0 ? 0 : i - 1;
+        next[j] = (next[j] || 0) + gone;
+        apply(next);
+      });
+      r.appendChild(x);
+
+      list.appendChild(r);
+      from = to + 1;
+    });
+
+    /* 마지막 월드를 둘로 나눠 새 월드를 만듭니다 */
+    const k    = actual.length - 1;
+    const last = k >= 0 ? intent[k] : 0;
+    const add  = el('button', 'rep__add', '＋ ' + esc(f.addLabel || '월드 추가'));
+    add.type = 'button';
+    add.disabled = k < 0 || last < 2 || actual[k] < 2;
+    add.title = add.disabled
+      ? '마지막 월드에 문제가 둘은 있어야 나눌 수 있습니다'
+      : '마지막 월드를 둘로 나눕니다';
+    add.addEventListener('click', () => {
+      const half = Math.ceil(last / 2);
+      const next = intent.slice();
+      next.splice(k, 1, half, last - half);
+      apply(next);
+    });
+    list.appendChild(add);
+
+    if(!actual.length) list.appendChild(el('p', 'f__h', '문제를 넣으면 월드가 생깁니다.'));
+
+    sum.textContent = actual.length
+      ? `문제 ${total()}개를 ${actual.join(' + ')}로 나눴습니다.`
+      : '';
+
+    paintCards(intent);
+
+    if(focus != null){
+      const back = list.querySelectorAll('.wr__in')[Math.min(focus, actual.length - 1)];
+      if(back){
+        back.focus();
+        /* 숫자칸은 setSelectionRange를 못 씁니다. 값을 다시 넣어 커서를 끝으로 보냅니다. */
+        const v = back.value; back.value = ''; back.value = v;
+      }
+    }
+  }
+
+  worldsRedraw = draw;
+  draw();
+  return wrap;
+}
+
 /* ── 정답 ──
    보기 중에서만 고를 수 있습니다.
    그래서 "보기에 없는 정답"이 구조적으로 만들어지지 않습니다. */
@@ -597,6 +781,12 @@ function row(f, ctx, path, i, count, redraw){
   return r;
 }
 
+/* 카드 머리에 붙는 WORLD 표기(1-3) — 월드 구성을 따릅니다 */
+function worldBadge(f, ctx, i){
+  const t = worldTag(f.worldsFrom ? ctx.store.read(f.worldsFrom) : null, i);
+  return t.world + '-' + t.stage;
+}
+
 /* ── 문제 카드 (접힘) ── */
 function card(f, ctx, path, i, count, redraw){
   const itemPath = path + '.' + i;
@@ -612,7 +802,7 @@ function card(f, ctx, path, i, count, redraw){
     el('span', 'qc__n px', (f.itemLabel || 'Q{n}').replace('{n}', i + 1)),
     el('span', 'qc__t'),
     el('span', 'qc__a px'),
-    el('span', 'qc__w px', `${Math.floor(i / 5) + 1}-${(i % 5) + 1}`),
+    el('span', 'qc__w px', worldBadge(f, ctx, i)),
     el('span', 'qc__cv', icon('chev', 'ico'))
   );
 

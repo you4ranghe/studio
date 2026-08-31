@@ -4,7 +4,7 @@
    ── 가운데 폼과 오른쪽 미리보기가 그 목차를 따라 함께 움직입니다.
    ══════════════════════════════════════════════════════════ */
 import { createStore, clone, get } from './store.js';
-import { renderFields, openCard, optIn } from './schema-form.js';
+import { renderFields, openCard, optIn, worldSizes, worldTag, refreshWorlds } from './schema-form.js';
 import { loadTemplate, buildSingleFile, download, prettySize } from './build.js';
 import { images, hydrate, collectIds } from './imagestore.js';
 
@@ -23,7 +23,8 @@ const tintOf = s => {
   if(!s) return TINT.dawn;
   if(s.type === 'clear') return TINT.castle;
   if(!s.no) return TINT.dawn;
-  return Math.floor((s.no - 1) / 5) % 2 === 0 ? TINT.overworld : TINT.underground;
+  return worldTag(store.read('worlds'), s.no - 1).world % 2 === 1
+    ? TINT.overworld : TINT.underground;
 };
 
 let tpl, store, rows = [], outline = [], slideIndex = 0, spy;
@@ -130,7 +131,9 @@ function ctx(){
       push();
       refreshProgress();
       sweep();
-      if(path === 'quiz' || /^quiz\.\d+\.(question|answerIndex|options)/.test(path)) buildRail();
+      /* 문제를 더하거나 지우면 월드 칸이 어긋납니다. 먼저 다시 맞춥니다. */
+      if(path === 'quiz') refreshWorlds();
+      if(path === 'quiz' || path === 'worlds' || /^quiz\.\d+\.(question|answerIndex|options)/.test(path)) buildRail();
     },
     onFocus(path){ jumpTo(path); },
     onCard(no){ post({ type:'studio:question', no, kind:'quiz' }); markRail('q' + (no - 1)); },
@@ -148,14 +151,18 @@ function buildRail(){
   tpl.schema.sections.forEach(sec => {
     if(sec.id === 'quiz'){
       const items = store.read('quiz') || [];
-      for(let w = 0; w * 5 < Math.max(items.length, 1); w++){
-        const slice = items.slice(w * 5, w * 5 + 5);
-        if(!slice.length) break;
+      /* 월드는 5개씩 고정이 아니라 '월드 구성'이 정합니다 (worlds: [3,7]) */
+      const sizes = worldSizes(store.read('worlds'), items.length);
+      let at = 0;
+      sizes.forEach((n, w) => {
+        const slice = items.slice(at, at + n);
+        const base  = at;
+        at += n;
         groups.push({
           title: `WORLD ${w + 1}`,
           sub: w % 2 === 0 ? '지상' : '지하',
           rows: slice.map((q, k) => {
-            const i = w * 5 + k;
+            const i = base + k;
             const opts = (q.options || []).map(optIn);
             const txt = String(q.question || '').replace(/\s+/g, ' ').trim();
             return {
@@ -169,7 +176,7 @@ function buildRail(){
             };
           })
         });
-      }
+      });
       return;
     }
 

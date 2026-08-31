@@ -1094,10 +1094,27 @@ const SET_CAVE = [
 /* 빌드할 때 아래 마커가 사용자 데이터(JSON)로 치환됩니다. */
 const DATA = /*__DATA__*/ null;
 
-/* 문제 번호 → WORLD 표기 (5문제마다 월드가 바뀝니다) */
-const worldOf  = no => Math.floor((no - 1) / 5) + 1;
-const stageOf  = no => ((no - 1) % 5) + 1;
-const stageTag = no => worldOf(no) + '-' + stageOf(no);
+/* 문제 번호 → WORLD 표기
+   월드마다 문제 수를 따로 정합니다. worlds:[3,7] 이면 Q1~Q3이 WORLD 1,
+   Q4~Q10이 WORLD 2입니다. 적어둔 월드를 다 채우고도 문제가 남으면
+   마지막 월드의 수만큼 월드를 더 만들어 계속 나눕니다. */
+let WORLDS = [5];
+const setWorlds = list => {
+  const sizes = (Array.isArray(list) ? list : [])
+    .map(n => Math.max(1, Math.min(20, n | 0)));
+  WORLDS = sizes.length ? sizes : [5];
+};
+function worldPos(no){
+  let w = 0, left = Math.max(1, no | 0);
+  for(;;){
+    const size = WORLDS[Math.min(w, WORLDS.length - 1)];
+    if(left <= size) return { w: w + 1, s: left };
+    left -= size; w++;
+  }
+}
+const worldOf  = no => worldPos(no).w;
+const stageOf  = no => worldPos(no).s;
+const stageTag = no => { const p = worldPos(no); return p.w + '-' + p.s; };
 
 /* ── 배경 프리셋 ── */
 const PROPS_TITLE = [
@@ -1212,6 +1229,9 @@ const arr = v => Array.isArray(v) ? v : [];
 
 function normalize(d){
   d = d || {};
+  /* 월드 칸 수는 화면 곳곳(상태바·월드 카드·배경)에서 쓰입니다.
+     데이터가 바뀔 때마다 여기서 한 번만 받아둡니다. */
+  setWorlds(d.worlds);
   return {
     hud:      Object.assign({name:'', lives:3}, d.hud),
     cover:    Object.assign({eyebrow:'', titleEn:['QUIZ','GAME'], image:''}, d.cover),
@@ -1219,6 +1239,7 @@ function normalize(d){
     rules:    Object.assign({title:'게임 규칙', items:[]}, d.rules),
     start:    Object.assign({title:'게임 시작', lines:[]}, d.start),
     ending:   Object.assign({title:'COURSE CLEAR!', lines:[], showCoins:true, image:''}, d.ending),
+    worlds:   arr(d.worlds).map(n => Math.max(1, Math.min(20, n | 0))),
     quiz:     arr(d.quiz).map(q => {
                 const o = Object.assign({
                   question:'', note:'', options:[], answerIndex:0,
